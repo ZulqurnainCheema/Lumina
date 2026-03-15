@@ -28,7 +28,7 @@ final GoRouter _router = GoRouter(
     GoRoute(
       path: '/',
       builder: (BuildContext context, GoRouterState state) {
-        return const MyHomePage(title: 'Lumina' );
+        return const MyHomePage(title: 'Lumina');
       },
       routes: <RouteBase>[
         GoRoute(
@@ -54,106 +54,114 @@ class MyHomePage extends StatefulWidget {
 class _MyHomePageState extends State<MyHomePage> {
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        toolbarHeight: 80,
-        actionsPadding: const EdgeInsets.symmetric(horizontal: 16),
-        iconTheme: IconThemeData(
-          color: Theme.of(context).colorScheme.primary,
-          size: 30,
-        ),
-        leading: Icon(
-          Symbols.menu_book,
-          color: Theme.of(context).colorScheme.primary,
-        ),
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        title: Text(widget.title),
-        actions: [
-          IconButton(
-            onPressed: () {},
-            icon: Icon(Symbols.search),
+    return DefaultTabController(
+      length: 3,
+      child: Scaffold(
+        appBar: AppBar(
+          toolbarHeight: 80,
+          actionsPadding: const EdgeInsets.symmetric(horizontal: 16),
+          iconTheme: IconThemeData(
+            color: Theme.of(context).colorScheme.primary,
+            size: 30,
+          ),
+          leading: Icon(
+            Symbols.menu_book,
             color: Theme.of(context).colorScheme.primary,
           ),
-          IconButton(
-            icon: Icon(Symbols.person_4_sharp),
-            color: Theme.of(context).colorScheme.primary,
-            onPressed: () {},
-          ),
-        ],
-        shape: Border(
-          bottom: BorderSide(color: LuminaColors.borderSubtle, width: 0.5),
-        ),
-      ),
-      body: Container(
-        padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 20),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.start,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          spacing: 10,
-          children: [
-            Text("My Library", style: Theme.of(context).textTheme.displayLarge),
-            Text(
-              'You have 4 books in your library.',
-
-              style: Theme.of(context).textTheme.bodySmall,
+          backgroundColor: Theme.of(context).colorScheme.inversePrimary,
+          title: Text(widget.title),
+          actions: [
+            IconButton(
+              onPressed: () {},
+              icon: Icon(Symbols.search),
+              color: Theme.of(context).colorScheme.primary,
             ),
-            TabBar(
-              isScrollable: true,
-              tabAlignment: TabAlignment.start,
-              dividerColor: LuminaColors.neutral,
-              dividerHeight: 0.2,
-              unselectedLabelStyle: Theme.of(context).textTheme.bodySmall,
-              tabs: [
-                Tab(text: "Reading"),
-                Tab(text: "Finished"),
-                Tab(text: "Want to Read"),
-              ],
+            IconButton(
+              icon: Icon(Symbols.person_4_sharp),
+              color: Theme.of(context).colorScheme.primary,
+              onPressed: () {},
             ),
           ],
+          shape: Border(
+            bottom: BorderSide(color: LuminaColors.borderSubtle, width: 0.5),
+          ),
         ),
-      ),
-      floatingActionButton: FloatingActionButton(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(50)),
-        onPressed: () {},
-        tooltip: 'add book',
-        child: const Icon(Icons.add, size: 40),
-      ),
-      bottomNavigationBar: BottomAppBar(
-        color: Theme.of(context).colorScheme.inversePrimary,
-        child: Container(
-          height: 60,
-          padding: const EdgeInsets.symmetric(horizontal: 20),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        body: Container(
+          padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 20),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            spacing: 10,
             children: [
-              IconButton(
-                onPressed: () {},
-                icon: Icon(Symbols.home),
-                focusColor: Theme.of(context).colorScheme.primary,
-                color: LuminaColors.neutral,
+              Text(
+                "My Library",
+                style: Theme.of(context).textTheme.displayLarge,
               ),
-              IconButton(
-                onPressed: () {},
-                icon: Icon(Symbols.auto_stories),
-                focusColor: Theme.of(context).colorScheme.primary,
-                color: LuminaColors.neutral,
+              Text(
+                'You have 4 books in your library.',
+
+                style: Theme.of(context).textTheme.bodySmall,
               ),
-              IconButton(
-                onPressed: () {},
-                icon: Icon(Symbols.bar_chart),
-                focusColor: Theme.of(context).colorScheme.primary,
-                color: LuminaColors.neutral,
-              ),
-              IconButton(
-                onPressed: () {},
-                icon: Icon(Symbols.settings),
-                focusColor: Theme.of(context).colorScheme.primary,
-                color: LuminaColors.neutral,
+              TabBar(
+                isScrollable: true,
+                tabAlignment: TabAlignment.start,
+                dividerColor: LuminaColors.neutral,
+                dividerHeight: 0.2,
+                unselectedLabelStyle: Theme.of(context).textTheme.bodySmall,
+                tabs: [
+                  Tab(text: "Reading"),
+                  Tab(text: "Finished"),
+                  Tab(text: "Want to Read"),
+                ],
               ),
             ],
           ),
         ),
-      ), // This trailing comma makes auto-formatting nicer for build methods.
+        floatingActionButton: FloatingActionButton(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(50),
+          ),
+          onPressed: () => GoRouter.of(context).push('/add-books'),
+          tooltip: 'add book',
+          child: const Icon(Icons.add, size: 40),
+        ),
+        bottomNavigationBar: BottomAppBar(
+          color: Theme.of(context).colorScheme.inversePrimary,
+          child: Container(
+            height: 60,
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                IconButton(
+                  onPressed: () {},
+                  icon: Icon(Symbols.home),
+                  focusColor: Theme.of(context).colorScheme.primary,
+                  color: LuminaColors.neutral,
+                ),
+                IconButton(
+                  onPressed: () {},
+                  icon: Icon(Symbols.auto_stories),
+                  focusColor: Theme.of(context).colorScheme.primary,
+                  color: LuminaColors.neutral,
+                ),
+                IconButton(
+                  onPressed: () {},
+                  icon: Icon(Symbols.bar_chart),
+                  focusColor: Theme.of(context).colorScheme.primary,
+                  color: LuminaColors.neutral,
+                ),
+                IconButton(
+                  onPressed: () {},
+                  icon: Icon(Symbols.settings),
+                  focusColor: Theme.of(context).colorScheme.primary,
+                  color: LuminaColors.neutral,
+                ),
+              ],
+            ),
+          ),
+        ), // This trailing comma makes auto-formatting nicer for build methods.
+      ),
     );
   }
 }

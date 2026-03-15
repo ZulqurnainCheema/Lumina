@@ -89,7 +89,6 @@ class LuminaTheme {
       surface: LuminaColors.surface,
       onSurface: LuminaColors.white,
       error: Colors.redAccent,
-      
     );
 
     return base.copyWith(
@@ -145,7 +144,9 @@ class LuminaTheme {
 
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(
-          foregroundColor: LuminaColors.neutral,
+          foregroundColor: LuminaColors.accent,
+          backgroundColor: LuminaColors.shadow,
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
           textStyle: GoogleFonts.inter(
             fontWeight: FontWeight.w500,
             fontSize: 14,
@@ -159,9 +160,7 @@ class LuminaTheme {
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: LuminaColors.background,
-
         hintStyle: GoogleFonts.inter(color: LuminaColors.neutral),
-
         contentPadding: const EdgeInsets.symmetric(
           horizontal: 16,
           vertical: 14,
