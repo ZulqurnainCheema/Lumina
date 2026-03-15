@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import 'package:reading_assist/services/database_services.dart';
 import 'package:reading_assist/theme.dart';
 import 'package:dio/dio.dart';
 
@@ -12,8 +14,10 @@ class Addbooks extends StatefulWidget {
 class _AddbooksState extends State<Addbooks> {
   final dio = Dio();
   final _formKey = GlobalKey<FormState>();
+  final DatabaseServices _databaseServices = DatabaseServices.instance;
   final TextEditingController _titleController = TextEditingController();
   final TextEditingController _authorController = TextEditingController();
+  final TextEditingController _pagesController = TextEditingController();
   String _coverUrl = 'assets/book.jpg';
 
   Future<void> fetchCover() async {
@@ -29,11 +33,19 @@ class _AddbooksState extends State<Addbooks> {
       );
       debugPrint('status: ${response.statusCode}');
       debugPrint('data: ${response.data}');
-      response.data['url'] != null
-          ? setState(() {
-              _coverUrl = response.data['url'].toString();
-            })
-          : debugPrint('Cover URL not found in response');
+      if (response.data['url'] != null) {
+        if (mounted) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) {
+              setState(() {
+                _coverUrl = response.data['url'].toString();
+              });
+            }
+          });
+        }
+      } else {
+        debugPrint('Cover URL not found in response');
+      }
     } on DioException catch (e) {
       debugPrint('Dio error: ${e.message}');
       debugPrint('response: ${e.response?.statusCode} ${e.response?.data}');
@@ -42,11 +54,36 @@ class _AddbooksState extends State<Addbooks> {
     }
   }
 
-  Future Submit() async {
+  @override
+  void dispose() {
+    _titleController.dispose();
+    _authorController.dispose();
+    _pagesController.dispose();
+    dio.close();
+    super.dispose();
+  }
+
+  Future<void> _submit(BuildContext context) async {
     if (_formKey.currentState!.validate()) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Processing Data')));
+      final newBook = {
+        'title': _titleController.text.trim(),
+        'author': _authorController.text.trim(),
+        'coverUrl': _coverUrl,
+        'totalPages': int.parse(_pagesController.text.trim()),
+        'status': 'to-read',
+        'createdAt': DateTime.now().toIso8601String(),
+      };
+      _databaseServices.addBook(newBook);
+      if (!mounted) {
+        return;
+      }
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Book added successfully!')),
+        );
+        GoRouter.of(context).pop();
+      }
     }
   }
 
@@ -117,6 +154,24 @@ class _AddbooksState extends State<Addbooks> {
                             return null;
                           },
                         ),
+                        SizedBox(height: 20),
+                        TextFormField(
+                          controller: _pagesController,
+                          decoration: InputDecoration(
+                            labelText: 'Total Pages',
+                            hintText: 'Enter the total number of pages',
+                          ),
+                          keyboardType: TextInputType.number,
+                          validator: (value) {
+                            if (value == null || value.isEmpty) {
+                              return 'Please enter the total number of pages';
+                            }
+                            if (int.tryParse(value) == null) {
+                              return 'Please enter a valid number';
+                            }
+                            return null;
+                          },
+                        ),
                         SizedBox(height: 30),
 
                         TextButton(
@@ -162,7 +217,7 @@ class _AddbooksState extends State<Addbooks> {
                         SizedBox(height: 50),
                         ElevatedButton(
                           onPressed: () async {
-                            await Submit();
+                            await _submit(context);
                           },
                           child: Text('Add Book'),
                         ),

@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/material_symbols_icons.dart';
-import 'package:reading_assist/screens/addBooks.dart';
+import 'package:reading_assist/screens/add_books.dart';
+import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'theme.dart';
 import 'package:go_router/go_router.dart';
+import 'services/database_services.dart';
 
 void main() {
   runApp(const MyApp());
@@ -46,12 +48,28 @@ class MyHomePage extends StatefulWidget {
   const MyHomePage({super.key, required this.title});
 
   final String title;
-
   @override
   State<MyHomePage> createState() => _MyHomePageState();
 }
 
 class _MyHomePageState extends State<MyHomePage> {
+  final DatabaseServices _databaseServices = DatabaseServices.instance;
+  final List<Map<String, dynamic>> _books = [];
+  @override
+  void initState() {
+    super.initState();
+    fetchBooks();
+  }
+
+  void fetchBooks() async {
+    final books = await _databaseServices.getBooks();
+    debugPrint('Books: $books');
+    setState(() {
+      _books.clear();
+      _books.addAll(books);
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return DefaultTabController(
@@ -164,4 +182,55 @@ class _MyHomePageState extends State<MyHomePage> {
       ),
     );
   }
+}
+
+Widget buildBookCard(
+  BuildContext context,
+  String title,
+  String author,
+  double progress,
+) {
+  return Container(
+    width: double.infinity,
+    padding: const EdgeInsets.all(16),
+    decoration: BoxDecoration(
+      border: Border.all(color: LuminaColors.accent),
+      borderRadius: BorderRadius.circular(12),
+      boxShadow: [
+        BoxShadow(
+          color: LuminaColors.accent.withAlpha(20),
+          blurRadius: 12,
+          offset: const Offset(0, 6),
+        ),
+      ],
+    ),
+    child: Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Text(
+              'Book Title',
+              style: Theme.of(context).textTheme.headlineMedium,
+            ),
+            Text(title, style: Theme.of(context).textTheme.headlineMedium),
+          ],
+        ),
+        SizedBox(height: 8),
+        Row(
+          children: [
+            Text('Author Name', style: Theme.of(context).textTheme.labelMedium),
+            Text(author, style: Theme.of(context).textTheme.labelMedium),
+          ],
+        ),
+        SizedBox(height: 12),
+        LinearProgressIndicator(
+          value: progress,
+          backgroundColor: LuminaColors.neutral.withAlpha(50),
+          color: LuminaColors.accent,
+        ),
+      ],
+    ),
+  );
 }
