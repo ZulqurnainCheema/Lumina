@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:reading_assist/theme.dart';
 import 'package:reading_assist/models/entries.dart';
 import 'package:reading_assist/services/database_services.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 class BookProgress extends StatefulWidget {
   const BookProgress({super.key, required this.id});
@@ -27,10 +28,41 @@ class _BookProgressState extends State<BookProgress> {
     });
   }
 
+  Future<void> _deleteEntry(int entryId) async {
+    try {
+      await _databaseServices.deleteEntry(entryId);
+      _refreshEntries();
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Entry deleted.')));
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Failed to delete entry.')));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Book Progress')),
+      appBar: AppBar(
+        title: const Text('Book Progress'),
+        actions: [
+          IconButton(
+            onPressed: () {
+              GoRouter.of(context).go('/summary/${widget.id}');
+            },
+            icon: Icon(Symbols.article_rounded),
+            color: LuminaColors.white,
+          ),
+        ],
+      ),
       body: Stack(
         children: [
           const Positioned.fill(
@@ -83,9 +115,11 @@ class _BookProgressState extends State<BookProgress> {
                           padding: const EdgeInsets.only(bottom: 12.0),
                           child: buildBookProgressCard(
                             context,
+                            entry.id,
                             entry.percentageRead,
                             createdAt,
                             entry.summary,
+                            onDelete: _deleteEntry,
                           ),
                         );
                       },
@@ -173,10 +207,12 @@ class _BookProgressState extends State<BookProgress> {
 
 Widget buildBookProgressCard(
   BuildContext context,
+  int? entryId,
   int percentageRead,
   DateTime? createdAt,
-  String summary,
-) {
+  String summary, {
+  required Future<void> Function(int entryId) onDelete,
+}) {
   final updatedLabel = createdAt != null
       ? createdAt.toLocal().toString().split(' ')[0]
       : 'Unknown date';
@@ -227,6 +263,17 @@ Widget buildBookProgressCard(
             ],
           ),
         ),
+        PopupMenuButton<String>(
+          icon: const Icon(Icons.more_vert),
+          onSelected: (String value) async {
+            if (value == 'delete' && entryId != null) {
+              await onDelete(entryId);
+            }
+          },
+          itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
+            const PopupMenuItem<String>(value: 'delete', child: Text('Delete')),
+          ],
+        ),
       ],
     ),
   );
@@ -247,12 +294,16 @@ class _MetricTile extends StatelessWidget {
         borderRadius: BorderRadius.circular(18),
         border: Border.all(color: LuminaColors.borderSubtle),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
         children: [
-          Text(value, style: Theme.of(context).textTheme.headlineMedium),
-          const SizedBox(height: 4),
-          Text(label, style: Theme.of(context).textTheme.bodySmall),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(value, style: Theme.of(context).textTheme.headlineMedium),
+              const SizedBox(height: 4),
+              Text(label, style: Theme.of(context).textTheme.bodySmall),
+            ],
+          ),
         ],
       ),
     );

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:reading_assist/models/entries.dart';
+import 'package:reading_assist/notifications_handler.dart';
 import 'package:reading_assist/theme.dart';
 import 'package:reading_assist/services/database_services.dart';
 
@@ -21,8 +22,27 @@ class _AddBookProgressState extends State<AddBookProgress> {
   final _DatabaseServices = DatabaseServices.instance;
   bool _isbypages = false;
 
+  TextStyle? get _fieldTextStyle =>
+      Theme.of(context).textTheme.bodyMedium?.copyWith(
+        color: LuminaColors.white,
+        fontWeight: FontWeight.w500,
+      );
+
   Future<void> SubmissionHandler() async {
     if (_formKey.currentState!.validate()) {
+      final currentPercentage = await _DatabaseServices.getPercentageRead(
+        widget.id,
+      );
+      if (currentPercentage >= 100) {
+        if (!context.mounted) {
+          return;
+        }
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Book is already at 100%')),
+        );
+        return;
+      }
+
       final totalPages = await _DatabaseServices.getTotalPages(widget.id);
       Entries newEntry = Entries(
         bookId: widget.id,
@@ -33,6 +53,7 @@ class _AddBookProgressState extends State<AddBookProgress> {
         createdAt: DateTime.now().toIso8601String(),
       );
       await _DatabaseServices.addEntry(newEntry.toMap());
+      await NotificationsHandler.instance.refreshSchedules();
       if (!context.mounted) {
         return;
       }
@@ -100,6 +121,7 @@ class _AddBookProgressState extends State<AddBookProgress> {
                         if (_isbypages) ...[
                           TextFormField(
                             controller: _pagesController,
+                            style: _fieldTextStyle,
                             decoration: InputDecoration(
                               labelText: 'Total Pages Read',
                               hintText: 'Enter the total number of pages read',
@@ -116,6 +138,7 @@ class _AddBookProgressState extends State<AddBookProgress> {
                         ] else ...[
                           TextFormField(
                             controller: _percentageReadController,
+                            style: _fieldTextStyle,
                             decoration: InputDecoration(
                               labelText: 'Percentage Read',
                               hintText: 'Enter the percentage of the book read',
@@ -131,6 +154,7 @@ class _AddBookProgressState extends State<AddBookProgress> {
                         ],
                         TextFormField(
                           controller: _summaryController,
+                          style: _fieldTextStyle,
                           decoration: InputDecoration(
                             labelText: 'Summary',
                             hintText:

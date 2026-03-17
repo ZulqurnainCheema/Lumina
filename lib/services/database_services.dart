@@ -39,7 +39,7 @@ class DatabaseServices {
             author TEXT NOT NULL,
             coverUrl TEXT,
             totalPages INTEGER,
-            status TEXT NOT NULL CHECK(status IN ('to-read', 'reading', 'finished')),
+            status TEXT NOT NULL CHECK(status IN ('to-read', 'reading', 'read')),
             createdAt TEXT
           )
         ''');
@@ -126,9 +126,56 @@ class DatabaseServices {
         .toList();
   }
 
+  Future<List<DateTime>> getRecentEntryTimes({int limit = 14}) async {
+    final Database db = await database;
+    final List<Map<String, dynamic>> rows = await db.query(
+      'entries',
+      columns: ['createdAt'],
+      where: 'createdAt IS NOT NULL',
+      orderBy: 'createdAt DESC',
+      limit: limit,
+    );
+    return rows
+        .map((row) => row['createdAt'] as String?)
+        .whereType<String>()
+        .map(DateTime.tryParse)
+        .whereType<DateTime>()
+        .toList();
+  }
+
+  Future<DateTime?> getLastEntryTime() async {
+    final List<DateTime> recentEntries = await getRecentEntryTimes(limit: 1);
+    if (recentEntries.isEmpty) {
+      return null;
+    }
+    return recentEntries.first;
+  }
+
   Future<void> addEntry(Map<String, dynamic> entry) async {
     final Database db = await database;
-    await db.insert('entries', entry);
+    final int bookId = (entry['bookId'] as num).toInt();
+    final int currentTotal = await getPercentageRead(bookId);
+    final int requestedProgress = ((entry['percentageRead'] as num?) ?? 0)
+        .toInt()
+        .clamp(0, 100);
+    final int remaining = (100 - currentTotal).clamp(0, 100);
+    final int progressToInsert = requestedProgress.clamp(0, remaining);
+
+    if (progressToInsert <= 0) {
+      return;
+    }
+
+    final Map<String, dynamic> safeEntry = Map<String, dynamic>.from(entry)
+      ..['percentageRead'] = progressToInsert;
+    await db.insert('entries', safeEntry);
+
+    final int newTotal = currentTotal + progressToInsert;
+    if (currentTotal == 0) {
+      await updateBook(bookId, {'status': 'reading'});
+    }
+    if (newTotal > 80) {
+      await updateBook(bookId, {'status': 'read'});
+    }
   }
 
   Future<void> updateEntry(int id, Map<String, dynamic> entry) async {
@@ -148,8 +195,38 @@ class DatabaseServices {
     return 0;
   }
 
+  Future<List<String>> getSummaries(int bookId) async {
+    final Database db = await database;
+    final List<Map<String, dynamic>> result = await db.query(
+      'entries',
+      columns: ['summary'],
+      where: 'bookId = ?',
+      whereArgs: [bookId],
+    );
+    return result
+        .map((row) => row['summary'] as String?)
+        .whereType<String>()
+        .toList();
+  }
+
   Future<void> deleteEntry(int id) async {
     final Database db = await database;
+    final List<Map<String, dynamic>> rows = await db.query(
+      'entries',
+      columns: ['bookId'],
+      where: 'id = ?',
+      whereArgs: [id],
+    );
     await db.delete('entries', where: 'id = ?', whereArgs: [id]);
+    if (rows.isEmpty) return;
+    final int bookId = rows.first['bookId'] as int;
+    final int newTotal = await getPercentageRead(bookId);
+    if (newTotal <= 0) {
+      await updateBook(bookId, {'status': 'to-read'});
+    } else if (newTotal < 85) {
+      await updateBook(bookId, {'status': 'reading'});
+    } else {
+      await updateBook(bookId, {'status': 'read'});
+    }
   }
 }

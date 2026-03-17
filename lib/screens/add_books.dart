@@ -21,6 +21,12 @@ class _AddbooksState extends State<Addbooks> {
   String _coverUrl = 'assets/book.jpg';
   bool _isFetchingCover = false;
 
+  TextStyle? get _fieldTextStyle =>
+      Theme.of(context).textTheme.bodyMedium?.copyWith(
+        color: LuminaColors.white,
+        fontWeight: FontWeight.w500,
+      );
+
   Future<void> fetchCover() async {
     if (_isFetchingCover) {
       return;
@@ -156,6 +162,7 @@ class _AddbooksState extends State<Addbooks> {
                       children: [
                         TextFormField(
                           controller: _titleController,
+                          style: _fieldTextStyle,
                           decoration: InputDecoration(
                             labelText: 'Title',
                             hintText: 'Enter the title of the book',
@@ -170,6 +177,7 @@ class _AddbooksState extends State<Addbooks> {
                         SizedBox(height: 20),
                         TextFormField(
                           controller: _authorController,
+                          style: _fieldTextStyle,
                           decoration: InputDecoration(
                             labelText: 'Author',
                             hintText: 'Enter the author of the book',
@@ -184,6 +192,7 @@ class _AddbooksState extends State<Addbooks> {
                         SizedBox(height: 20),
                         TextFormField(
                           controller: _pagesController,
+                          style: _fieldTextStyle,
                           decoration: InputDecoration(
                             labelText: 'Total Pages',
                             hintText: 'Enter the total number of pages',

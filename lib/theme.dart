@@ -11,6 +11,8 @@ class LuminaColors {
   static const accent = Color(0xFF17CF54);
   static const neutral = Color(0xFFA0A0A0);
   static const track = Color(0xFF0D2517);
+  static const field = Color(0xFF0F2117);
+  static const fieldFocus = Color(0xFF163523);
 
   static const white = Colors.white;
 
@@ -25,7 +27,7 @@ class LuminaColors {
 
 class LuminaTheme {
   static const radiusCard = 12.0;
-  static const radiusInput = 8.0;
+  static const radiusInput = 18.0;
   static const radiusThumbnail = 8.0;
 
   static const buttonHeight = 54.0;
@@ -168,27 +170,63 @@ class LuminaTheme {
       /// ===============================
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: LuminaColors.background,
-        hintStyle: GoogleFonts.inter(color: LuminaColors.neutral),
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: 16,
-          vertical: 14,
+        fillColor: LuminaColors.field,
+        hintStyle: GoogleFonts.inter(
+          color: LuminaColors.neutral.withAlpha(190),
+          fontSize: 14,
+          fontWeight: FontWeight.w400,
         ),
+        labelStyle: GoogleFonts.inter(
+          color: LuminaColors.neutral.withAlpha(220),
+          fontSize: 14,
+          fontWeight: FontWeight.w500,
+        ),
+        floatingLabelStyle: GoogleFonts.inter(
+          color: LuminaColors.accent,
+          fontSize: 14,
+          fontWeight: FontWeight.w600,
+        ),
+        errorStyle: GoogleFonts.inter(
+          color: const Color(0xFFFF8A80),
+          fontSize: 12,
+          fontWeight: FontWeight.w500,
+        ),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 18,
+          vertical: 18,
+        ),
+        isDense: true,
 
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(radiusInput),
-          borderSide: const BorderSide(color: LuminaColors.surface),
+          borderSide: const BorderSide(color: LuminaColors.borderSoft),
         ),
 
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(radiusInput),
-          borderSide: const BorderSide(color: LuminaColors.surface),
+          borderSide: const BorderSide(color: LuminaColors.borderSoft),
         ),
 
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(radiusInput),
-          borderSide: const BorderSide(color: LuminaColors.accent, width: 1.2),
+          borderSide: const BorderSide(color: LuminaColors.accent, width: 1.6),
         ),
+
+        errorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(radiusInput),
+          borderSide: const BorderSide(color: Color(0x66FF8A80), width: 1.2),
+        ),
+
+        focusedErrorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(radiusInput),
+          borderSide: const BorderSide(color: Color(0xFFFF8A80), width: 1.4),
+        ),
+      ),
+
+      textSelectionTheme: TextSelectionThemeData(
+        cursorColor: LuminaColors.accent,
+        selectionColor: LuminaColors.accent.withAlpha(70),
+        selectionHandleColor: LuminaColors.accent,
       ),
 
       /// ===============================

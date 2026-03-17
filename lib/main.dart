@@ -3,9 +3,11 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/material_symbols_icons.dart';
 import 'package:reading_assist/models/books.dart';
+import 'package:reading_assist/notifications_handler.dart';
 import 'package:reading_assist/screens/add_book_progress.dart';
 import 'package:reading_assist/screens/add_books.dart';
 import 'package:reading_assist/screens/book_progress.dart';
+import 'package:reading_assist/screens/summary_page.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:sqflite_common_ffi_web/sqflite_ffi_web.dart';
 import 'theme.dart';
@@ -20,6 +22,8 @@ void main() async {
     sqfliteFfiInit();
     databaseFactory = databaseFactoryFfi;
   }
+  await NotificationsHandler.instance.initialize();
+  await NotificationsHandler.instance.refreshSchedules();
   runApp(const MyApp());
 }
 
@@ -66,6 +70,13 @@ final GoRouter _router = GoRouter(
             return AddBookProgress(id: int.parse(id));
           },
         ),
+        GoRoute(
+          path: 'summary/:id',
+          builder: (context, state) {
+            final id = state.pathParameters['id']!;
+            return SummaryPage(id: int.parse(id));
+          },
+        ),
       ],
     ),
   ],
@@ -83,10 +94,24 @@ class _MyHomePageState extends State<MyHomePage> {
   final DatabaseServices _databaseServices = DatabaseServices.instance;
   late Future<List<Books>> _booksFuture;
 
+  void _onRouteChange() {
+    final location = _router.routerDelegate.currentConfiguration.uri.toString();
+    if (location == '/' && mounted) {
+      _refreshBooks();
+    }
+  }
+
   @override
   void initState() {
     super.initState();
     _booksFuture = _databaseServices.getBooks();
+    _router.routerDelegate.addListener(_onRouteChange);
+  }
+
+  @override
+  void dispose() {
+    _router.routerDelegate.removeListener(_onRouteChange);
+    super.dispose();
   }
 
   void _refreshBooks() {
@@ -201,6 +226,7 @@ class _MyHomePageState extends State<MyHomePage> {
                                 book.title,
                                 book.author,
                                 book.coverUrl,
+                                onDeleted: _refreshBooks,
                               ),
                             );
                           },
@@ -223,7 +249,7 @@ class _MyHomePageState extends State<MyHomePage> {
                         }
                         final List<Books> books = snapshot.data ?? <Books>[];
                         final List<Books> finishedBooks = books
-                            .where((book) => book.status == 'finished')
+                            .where((book) => book.status == 'read')
                             .toList();
                         if (finishedBooks.isEmpty) {
                           return const Center(
@@ -243,6 +269,7 @@ class _MyHomePageState extends State<MyHomePage> {
                                 book.title,
                                 book.author,
                                 book.coverUrl,
+                                onDeleted: _refreshBooks,
                               ),
                             );
                           },
@@ -286,6 +313,7 @@ class _MyHomePageState extends State<MyHomePage> {
                                 book.title,
                                 book.author,
                                 book.coverUrl,
+                                onDeleted: _refreshBooks,
                               ),
                             );
                           },
@@ -365,15 +393,13 @@ Widget buildBookCard(
   int id,
   String title,
   String author,
-  String coverUrl,
-) {
+  String coverUrl, {
+  required VoidCallback onDeleted,
+}) {
   final DatabaseServices databaseServices = DatabaseServices.instance;
   Future<int?> getBookPercentageRead(int bookId) async {
-    final int percentageRead = await databaseServices.getPercentageRead(
-      bookId,
-    );
+    final int percentageRead = await databaseServices.getPercentageRead(bookId);
     return percentageRead;
-    return 0;
   }
 
   return InkWell(
@@ -443,6 +469,35 @@ Widget buildBookCard(
                 );
               },
             ),
+          ),
+          PopupMenuButton<String>(
+            icon: const Icon(Symbols.more_vert),
+            onSelected: (String value) async {
+              if (value != 'delete') {
+                return;
+              }
+              try {
+                await databaseServices.deleteBook(id);
+                onDeleted();
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Book deleted.')),
+                  );
+                }
+              } catch (_) {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Failed to delete book.')),
+                  );
+                }
+              }
+            },
+            itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
+              const PopupMenuItem<String>(
+                value: 'delete',
+                child: Text('Delete'),
+              ),
+            ],
           ),
         ],
       ),
