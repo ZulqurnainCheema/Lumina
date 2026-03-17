@@ -367,14 +367,12 @@ Widget buildBookCard(
   String author,
   String coverUrl,
 ) {
-  final DatabaseServices _databaseServices = DatabaseServices.instance;
+  final DatabaseServices databaseServices = DatabaseServices.instance;
   Future<int?> getBookPercentageRead(int bookId) async {
-    final int? percentageRead = await _databaseServices.getPercentageRead(
+    final int percentageRead = await databaseServices.getPercentageRead(
       bookId,
     );
-    if (percentageRead != null) {
-      return percentageRead;
-    }
+    return percentageRead;
     return 0;
   }
 

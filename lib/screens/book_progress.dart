@@ -5,7 +5,7 @@ import 'package:reading_assist/models/entries.dart';
 import 'package:reading_assist/services/database_services.dart';
 
 class BookProgress extends StatefulWidget {
-  BookProgress({super.key, required this.id});
+  const BookProgress({super.key, required this.id});
   final int id;
   @override
   State<BookProgress> createState() => _BookProgressState();
@@ -15,6 +15,7 @@ class _BookProgressState extends State<BookProgress> {
   late Future<List<Entries>> _EntriesFuture;
   final _databaseServices = DatabaseServices.instance;
 
+  @override
   void initState() {
     super.initState();
     _EntriesFuture = _databaseServices.getEntries(widget.id);
