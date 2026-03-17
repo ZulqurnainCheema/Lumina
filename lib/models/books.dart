@@ -1,5 +1,5 @@
 class Books {
-  final int? id;
+  final int id;
   final String title;
   final String author;
   final String coverUrl;
@@ -7,7 +7,7 @@ class Books {
   final String status;
   final String? createdAt;
   Books({
-    this.id,
+    required this.id,
     required this.title,
     required this.author,
     required this.coverUrl,

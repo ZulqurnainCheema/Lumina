@@ -94,6 +94,15 @@ class LuminaTheme {
     return base.copyWith(
       textTheme: textTheme,
 
+      // Workaround for Linux desktop mouse tracker assertion on route pop.
+      pageTransitionsTheme: const PageTransitionsTheme(
+        builders: {
+          TargetPlatform.linux: _NoAnimationPageTransitionsBuilder(),
+          TargetPlatform.windows: _NoAnimationPageTransitionsBuilder(),
+          TargetPlatform.macOS: _NoAnimationPageTransitionsBuilder(),
+        },
+      ),
+
       scaffoldBackgroundColor: LuminaColors.background,
 
       colorScheme: colorScheme,
@@ -188,8 +197,8 @@ class LuminaTheme {
       navigationBarTheme: NavigationBarThemeData(
         backgroundColor: LuminaColors.surface,
         indicatorColor: LuminaColors.track,
-        labelTextStyle: MaterialStateProperty.resolveWith((states) {
-          if (states.contains(MaterialState.selected)) {
+        labelTextStyle: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.selected)) {
             return GoogleFonts.inter(
               fontSize: 12,
               fontWeight: FontWeight.w500,
@@ -253,6 +262,21 @@ class LuminaDecorations {
     borderRadius: BorderRadius.circular(LuminaTheme.radiusThumbnail),
     border: Border.all(color: LuminaColors.borderSoft),
   );
+}
+
+class _NoAnimationPageTransitionsBuilder extends PageTransitionsBuilder {
+  const _NoAnimationPageTransitionsBuilder();
+
+  @override
+  Widget buildTransitions<T>(
+    PageRoute<T> route,
+    BuildContext context,
+    Animation<double> animation,
+    Animation<double> secondaryAnimation,
+    Widget child,
+  ) {
+    return child;
+  }
 }
 
 /// ===============================

@@ -19,8 +19,22 @@ class _AddbooksState extends State<Addbooks> {
   final TextEditingController _authorController = TextEditingController();
   final TextEditingController _pagesController = TextEditingController();
   String _coverUrl = 'assets/book.jpg';
+  bool _isFetchingCover = false;
 
   Future<void> fetchCover() async {
+    if (_isFetchingCover) {
+      return;
+    }
+    if (mounted) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) {
+          return;
+        }
+        setState(() {
+          _isFetchingCover = true;
+        });
+      });
+    }
     try {
       debugPrint('fetchCover called');
       final response = await dio.get(
@@ -51,6 +65,17 @@ class _AddbooksState extends State<Addbooks> {
       debugPrint('response: ${e.response?.statusCode} ${e.response?.data}');
     } catch (e) {
       debugPrint('Unexpected error: $e');
+    } finally {
+      if (mounted) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) {
+            return;
+          }
+          setState(() {
+            _isFetchingCover = false;
+          });
+        });
+      }
     }
   }
 
@@ -73,17 +98,19 @@ class _AddbooksState extends State<Addbooks> {
         'status': 'to-read',
         'createdAt': DateTime.now().toIso8601String(),
       };
-      _databaseServices.addBook(newBook);
+      await _databaseServices.addBook(newBook);
       if (!mounted) {
         return;
       }
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Book added successfully!')),
-        );
-        GoRouter.of(context).pop();
-      }
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) {
+          return;
+        }
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Book added successfully!')));
+        GoRouter.of(context).pop(true);
+      });
     }
   }
 
@@ -175,11 +202,13 @@ class _AddbooksState extends State<Addbooks> {
                         SizedBox(height: 30),
 
                         TextButton(
-                          onPressed: () async {
-                            await fetchCover();
-                          },
+                          onPressed: fetchCover,
                           style: Theme.of(context).textButtonTheme.style,
-                          child: Text('Fetch Cover'),
+                          child: Text(
+                            _isFetchingCover
+                                ? 'Fetching Cover...'
+                                : 'Fetch Cover',
+                          ),
                         ),
                         SizedBox(height: 24),
                         Container(
@@ -200,17 +229,42 @@ class _AddbooksState extends State<Addbooks> {
                           padding: EdgeInsets.all(8),
                           child: ClipRRect(
                             borderRadius: BorderRadius.circular(6),
-                            child: Image.network(
-                              _coverUrl,
-                              height: 200,
-                              fit: BoxFit.cover,
-                              errorBuilder: (context, error, stackTrace) {
-                                return Image.asset(
-                                  'assets/book.jpg',
-                                  height: 200,
-                                  fit: BoxFit.cover,
-                                );
-                              },
+                            child: Stack(
+                              alignment: Alignment.center,
+                              children: [
+                                Image.network(
+                                  _coverUrl,
+                                  height: 220,
+                                  width: 140,
+                                  fit: BoxFit.contain,
+                                  errorBuilder: (context, error, stackTrace) {
+                                    return Image.asset(
+                                      'assets/book.jpg',
+                                      height: 220,
+                                      width: 140,
+                                      fit: BoxFit.contain,
+                                    );
+                                  },
+                                ),
+                                if (_isFetchingCover)
+                                  Positioned.fill(
+                                    child: DecoratedBox(
+                                      decoration: BoxDecoration(
+                                        color: LuminaColors.background
+                                            .withAlpha(210),
+                                      ),
+                                      child: Center(
+                                        child: const SizedBox(
+                                          width: 28,
+                                          height: 28,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 3,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                              ],
                             ),
                           ),
                         ),

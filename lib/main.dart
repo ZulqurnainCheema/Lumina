@@ -1,12 +1,25 @@
+import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/material_symbols_icons.dart';
+import 'package:reading_assist/models/books.dart';
+import 'package:reading_assist/screens/add_book_progress.dart';
 import 'package:reading_assist/screens/add_books.dart';
+import 'package:reading_assist/screens/book_progress.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
+import 'package:sqflite_common_ffi_web/sqflite_ffi_web.dart';
 import 'theme.dart';
 import 'package:go_router/go_router.dart';
 import 'services/database_services.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  if (kIsWeb) {
+    databaseFactory = databaseFactoryFfiWeb;
+  } else {
+    sqfliteFfiInit();
+    databaseFactory = databaseFactoryFfi;
+  }
   runApp(const MyApp());
 }
 
@@ -39,6 +52,20 @@ final GoRouter _router = GoRouter(
             return const Addbooks();
           },
         ),
+        GoRoute(
+          path: 'book-progress/:id',
+          builder: (BuildContext context, GoRouterState state) {
+            final id = state.pathParameters['id']!;
+            return BookProgress(id: int.parse(id));
+          },
+        ),
+        GoRoute(
+          path: 'add-book-progress/:id',
+          builder: (BuildContext context, GoRouterState state) {
+            final id = state.pathParameters['id']!;
+            return AddBookProgress(id: int.parse(id));
+          },
+        ),
       ],
     ),
   ],
@@ -54,19 +81,17 @@ class MyHomePage extends StatefulWidget {
 
 class _MyHomePageState extends State<MyHomePage> {
   final DatabaseServices _databaseServices = DatabaseServices.instance;
-  final List<Map<String, dynamic>> _books = [];
+  late Future<List<Books>> _booksFuture;
+
   @override
   void initState() {
     super.initState();
-    fetchBooks();
+    _booksFuture = _databaseServices.getBooks();
   }
 
-  void fetchBooks() async {
-    final books = await _databaseServices.getBooks();
-    debugPrint('Books: $books');
+  void _refreshBooks() {
     setState(() {
-      _books.clear();
-      _books.addAll(books);
+      _booksFuture = _databaseServices.getBooks();
     });
   }
 
@@ -132,6 +157,144 @@ class _MyHomePageState extends State<MyHomePage> {
                   Tab(text: "Want to Read"),
                 ],
               ),
+              SizedBox(height: 12),
+              Expanded(
+                child: TabBarView(
+                  children: [
+                    FutureBuilder<List<Books>>(
+                      future: _booksFuture,
+                      builder: (context, snapshot) {
+                        if (snapshot.connectionState ==
+                            ConnectionState.waiting) {
+                          return const Center(
+                            child: CircularProgressIndicator(),
+                          );
+                        }
+                        if (snapshot.hasError) {
+                          return Center(
+                            child: Text('Error: ${snapshot.error}'),
+                          );
+                        }
+                        final List<Books> books = snapshot.data ?? <Books>[];
+                        if (books.isEmpty) {
+                          return const Center(
+                            child: Text('No books in your library yet.'),
+                          );
+                        }
+                        final List<Books> readingBooks = books
+                            .where((book) => book.status == 'reading')
+                            .toList();
+                        if (readingBooks.isEmpty) {
+                          return const Center(
+                            child: Text('No books currently being read.'),
+                          );
+                        }
+                        return ListView.builder(
+                          itemCount: readingBooks.length,
+                          itemBuilder: (context, index) {
+                            final Books book = readingBooks[index];
+                            return Padding(
+                              padding: const EdgeInsets.only(bottom: 12),
+                              child: buildBookCard(
+                                context,
+                                book.id,
+                                book.title,
+                                book.author,
+                                book.coverUrl,
+                              ),
+                            );
+                          },
+                        );
+                      },
+                    ),
+                    FutureBuilder<List<Books>>(
+                      future: _booksFuture,
+                      builder: (context, snapshot) {
+                        if (snapshot.connectionState ==
+                            ConnectionState.waiting) {
+                          return const Center(
+                            child: CircularProgressIndicator(),
+                          );
+                        }
+                        if (snapshot.hasError) {
+                          return Center(
+                            child: Text('Error: ${snapshot.error}'),
+                          );
+                        }
+                        final List<Books> books = snapshot.data ?? <Books>[];
+                        final List<Books> finishedBooks = books
+                            .where((book) => book.status == 'finished')
+                            .toList();
+                        if (finishedBooks.isEmpty) {
+                          return const Center(
+                            child: Text('No finished books yet.'),
+                          );
+                        }
+                        return ListView.builder(
+                          itemCount: finishedBooks.length,
+                          itemBuilder: (context, index) {
+                            final Books book = finishedBooks[index];
+
+                            return Padding(
+                              padding: const EdgeInsets.only(bottom: 12),
+                              child: buildBookCard(
+                                context,
+                                book.id,
+                                book.title,
+                                book.author,
+                                book.coverUrl,
+                              ),
+                            );
+                          },
+                        );
+                      },
+                    ),
+                    FutureBuilder<List<Books>>(
+                      future: _booksFuture,
+                      builder: (context, snapshot) {
+                        if (snapshot.connectionState ==
+                            ConnectionState.waiting) {
+                          return const Center(
+                            child: CircularProgressIndicator(),
+                          );
+                        }
+                        if (snapshot.hasError) {
+                          return Center(
+                            child: Text('Error: ${snapshot.error}'),
+                          );
+                        }
+                        final List<Books> books = snapshot.data ?? <Books>[];
+                        final List<Books> wantToReadBooks = books
+                            .where((book) => book.status == 'to-read')
+                            .toList();
+                        if (wantToReadBooks.isEmpty) {
+                          return const Center(
+                            child: Text(
+                              'No books in your want-to-read list yet.',
+                            ),
+                          );
+                        }
+                        return ListView.builder(
+                          itemCount: wantToReadBooks.length,
+                          itemBuilder: (context, index) {
+                            final Books book = wantToReadBooks[index];
+                            return Padding(
+                              padding: const EdgeInsets.only(bottom: 12),
+                              child: buildBookCard(
+                                context,
+                                book.id,
+                                book.title,
+                                book.author,
+                                book.coverUrl,
+                              ),
+                            );
+                          },
+                        );
+                      },
+                    ),
+                  ],
+                ),
+              ),
             ],
           ),
         ),
@@ -139,7 +302,20 @@ class _MyHomePageState extends State<MyHomePage> {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(50),
           ),
-          onPressed: () => GoRouter.of(context).push('/add-books'),
+          onPressed: () async {
+            final bool? added = await GoRouter.of(
+              context,
+            ).push<bool>('/add-books');
+            if (!context.mounted || added != true) {
+              return;
+            }
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (!context.mounted) {
+                return;
+              }
+              _refreshBooks();
+            });
+          },
           tooltip: 'add book',
           child: const Icon(Icons.add, size: 40),
         ),
@@ -186,51 +362,92 @@ class _MyHomePageState extends State<MyHomePage> {
 
 Widget buildBookCard(
   BuildContext context,
+  int id,
   String title,
   String author,
-  double progress,
+  String coverUrl,
 ) {
-  return Container(
-    width: double.infinity,
-    padding: const EdgeInsets.all(16),
-    decoration: BoxDecoration(
-      border: Border.all(color: LuminaColors.accent),
-      borderRadius: BorderRadius.circular(12),
-      boxShadow: [
-        BoxShadow(
-          color: LuminaColors.accent.withAlpha(20),
-          blurRadius: 12,
-          offset: const Offset(0, 6),
-        ),
-      ],
-    ),
-    child: Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Text(
-              'Book Title',
-              style: Theme.of(context).textTheme.headlineMedium,
+  final DatabaseServices _databaseServices = DatabaseServices.instance;
+  Future<int?> getBookPercentageRead(int bookId) async {
+    final int? percentageRead = await _databaseServices.getPercentageRead(
+      bookId,
+    );
+    if (percentageRead != null) {
+      return percentageRead;
+    }
+    return 0;
+  }
+
+  return InkWell(
+    onTap: () {
+      GoRouter.of(context).push('/book-progress/$id');
+    },
+    child: Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: LuminaDecorations.card,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 72,
+            height: 104,
+            decoration: LuminaDecorations.thumbnail,
+            clipBehavior: Clip.antiAlias,
+            child: coverUrl.isNotEmpty
+                ? Image.network(
+                    coverUrl,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) {
+                      return const Center(
+                        child: Icon(
+                          Symbols.menu_book_rounded,
+                          color: LuminaColors.accent,
+                        ),
+                      );
+                    },
+                  )
+                : const Center(
+                    child: Icon(
+                      Symbols.menu_book_rounded,
+                      color: LuminaColors.accent,
+                    ),
+                  ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: FutureBuilder<int?>(
+              future: getBookPercentageRead(id),
+              builder: (context, snapshot) {
+                final int percentage = snapshot.data ?? 0;
+                return Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: Theme.of(context).textTheme.headlineMedium,
+                    ),
+                    const SizedBox(height: 8),
+                    Text(author, style: Theme.of(context).textTheme.bodySmall),
+                    const SizedBox(height: 12),
+                    LinearProgressIndicator(
+                      value: percentage / 100,
+                      backgroundColor: LuminaColors.borderSubtle,
+                      color: LuminaColors.accent,
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '$percentage% read',
+                      style: Theme.of(context).textTheme.labelMedium,
+                    ),
+                  ],
+                );
+              },
             ),
-            Text(title, style: Theme.of(context).textTheme.headlineMedium),
-          ],
-        ),
-        SizedBox(height: 8),
-        Row(
-          children: [
-            Text('Author Name', style: Theme.of(context).textTheme.labelMedium),
-            Text(author, style: Theme.of(context).textTheme.labelMedium),
-          ],
-        ),
-        SizedBox(height: 12),
-        LinearProgressIndicator(
-          value: progress,
-          backgroundColor: LuminaColors.neutral.withAlpha(50),
-          color: LuminaColors.accent,
-        ),
-      ],
+          ),
+        ],
+      ),
     ),
   );
 }
