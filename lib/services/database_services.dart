@@ -229,4 +229,152 @@ class DatabaseServices {
       await updateBook(bookId, {'status': 'read'});
     }
   }
+
+  //Reporting functions
+  Future<Map<String, dynamic>> getProgressReportbyDateofAllBooks() async {
+    final Database db = await database;
+    final List<Map<String, dynamic>> result = await db.rawQuery('''
+      SELECT 
+        date(createdAt) as date, 
+        SUM(percentageRead) as totalProgress
+      FROM entries
+      WHERE createdAt IS NOT NULL
+      GROUP BY date(createdAt)
+      ORDER BY date(createdAt) ASC
+    ''');
+    return {
+      'dates': result.map((row) => row['date'] as String).toList(),
+      'progress': result
+          .map((row) => row['totalProgress'] as int? ?? 0)
+          .toList(),
+    };
+  }
+
+  Future<int> getDaysStreak() async {
+    final Database db = await database;
+    final List<Map<String, dynamic>> rows = await db.rawQuery('''
+      SELECT DISTINCT date(createdAt) as entryDate
+      FROM entries
+      WHERE createdAt IS NOT NULL
+      ORDER BY date(createdAt) DESC
+    ''');
+
+    if (rows.isEmpty) {
+      return 0;
+    }
+
+    final List<DateTime> entryDates = rows
+        .map((row) => row['entryDate'] as String?)
+        .whereType<String>()
+        .map(DateTime.parse)
+        .map((date) => DateTime(date.year, date.month, date.day))
+        .toList();
+
+    final DateTime today = DateTime.now();
+    final DateTime normalizedToday = DateTime(
+      today.year,
+      today.month,
+      today.day,
+    );
+    final DateTime yesterday = normalizedToday.subtract(
+      const Duration(days: 1),
+    );
+
+    if (entryDates.first != normalizedToday && entryDates.first != yesterday) {
+      return 0;
+    }
+
+    int streak = 1;
+    for (int index = 1; index < entryDates.length; index++) {
+      final int difference = entryDates[index - 1]
+          .difference(entryDates[index])
+          .inDays;
+      if (difference != 1) {
+        break;
+      }
+      streak++;
+    }
+
+    return streak;
+  }
+
+  Future<int> getWeeklyProgress() async {
+    final Database db = await database;
+    final DateTime now = DateTime.now();
+    final DateTime startDate = DateTime(
+      now.year,
+      now.month,
+      now.day,
+    ).subtract(const Duration(days: 6));
+
+    final List<Map<String, dynamic>> result = await db.rawQuery(
+      '''
+      SELECT SUM(percentageRead) as weeklyProgress
+      FROM entries
+      WHERE createdAt IS NOT NULL
+        AND date(createdAt) >= date(?)
+      ''',
+      [startDate.toIso8601String()],
+    );
+
+    if (result.isEmpty) {
+      return 0;
+    }
+    final Object? weeklyProgress = result.first['weeklyProgress'];
+    if (weeklyProgress is int) {
+      return weeklyProgress;
+    }
+    if (weeklyProgress is double) {
+      return weeklyProgress.round();
+    }
+    return 0;
+  }
+
+  Future<double> getAverageDailyProgress() async {
+    final Database db = await database;
+    final List<Map<String, dynamic>> result = await db.rawQuery('''
+      SELECT AVG(dailyProgress) as averageDailyProgress
+      FROM (
+        SELECT date(createdAt) as day, SUM(percentageRead) as dailyProgress
+        FROM entries
+        WHERE createdAt IS NOT NULL
+        GROUP BY date(createdAt)
+      )
+    ''');
+
+    if (result.isEmpty) {
+      return 0;
+    }
+
+    final Object? average = result.first['averageDailyProgress'];
+    if (average is int) {
+      return average.toDouble();
+    }
+    if (average is double) {
+      return average;
+    }
+    return 0;
+  }
+
+  Future<int> getFinishedBooksCount() async {
+    final Database db = await database;
+    final List<Map<String, dynamic>> result = await db.rawQuery('''
+      SELECT COUNT(*) as finishedBooks
+      FROM books
+      WHERE status = 'read'
+    ''');
+
+    if (result.isEmpty) {
+      return 0;
+    }
+
+    final Object? count = result.first['finishedBooks'];
+    if (count is int) {
+      return count;
+    }
+    if (count is double) {
+      return count.round();
+    }
+    return 0;
+  }
 }

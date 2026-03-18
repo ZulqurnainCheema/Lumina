@@ -13,12 +13,15 @@ import 'package:sqflite_common_ffi_web/sqflite_ffi_web.dart';
 import 'theme.dart';
 import 'package:go_router/go_router.dart';
 import 'services/database_services.dart';
+import 'screens/statistics.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   if (kIsWeb) {
     databaseFactory = databaseFactoryFfiWeb;
-  } else {
+  } else if (defaultTargetPlatform == TargetPlatform.linux ||
+      defaultTargetPlatform == TargetPlatform.windows ||
+      defaultTargetPlatform == TargetPlatform.macOS) {
     sqfliteFfiInit();
     databaseFactory = databaseFactoryFfi;
   }
@@ -75,6 +78,12 @@ final GoRouter _router = GoRouter(
           builder: (context, state) {
             final id = state.pathParameters['id']!;
             return SummaryPage(id: int.parse(id));
+          },
+        ),
+        GoRoute(
+          path: 'statistics',
+          builder: (context, state) {
+            return const StatisticsScreen();
           },
         ),
       ],
@@ -356,7 +365,9 @@ class _MyHomePageState extends State<MyHomePage> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 IconButton(
-                  onPressed: () {},
+                  onPressed: () {
+                    GoRouter.of(context).push('/home');
+                  },
                   icon: Icon(Symbols.home),
                   focusColor: Theme.of(context).colorScheme.primary,
                   color: LuminaColors.neutral,
@@ -368,7 +379,9 @@ class _MyHomePageState extends State<MyHomePage> {
                   color: LuminaColors.neutral,
                 ),
                 IconButton(
-                  onPressed: () {},
+                  onPressed: () {
+                    GoRouter.of(context).push('/statistics');
+                  },
                   icon: Icon(Symbols.bar_chart),
                   focusColor: Theme.of(context).colorScheme.primary,
                   color: LuminaColors.neutral,
