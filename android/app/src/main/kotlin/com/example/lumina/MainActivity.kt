@@ -1,4 +1,4 @@
-package com.example.reading_assist
+package com.example.lumina
 
 import io.flutter.embedding.android.FlutterActivity
 

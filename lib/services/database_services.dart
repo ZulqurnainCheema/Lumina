@@ -1,6 +1,6 @@
 import 'package:flutter/foundation.dart';
-import 'package:reading_assist/models/books.dart';
-import 'package:reading_assist/models/entries.dart';
+import 'package:lumina/models/books.dart';
+import 'package:lumina/models/entries.dart';
 import 'package:sqflite/sqflite.dart';
 
 class DatabaseServices {

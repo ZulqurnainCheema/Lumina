@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:reading_assist/theme.dart';
-import 'package:reading_assist/models/entries.dart';
-import 'package:reading_assist/services/database_services.dart';
+import 'package:lumina/theme.dart';
+import 'package:lumina/models/entries.dart';
+import 'package:lumina/services/database_services.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
 class BookProgress extends StatefulWidget {

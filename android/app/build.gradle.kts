@@ -6,7 +6,7 @@ plugins {
 }
 
 android {
-    namespace = "com.example.reading_assist"
+    namespace = "com.example.lumina"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
@@ -22,7 +22,7 @@ android {
 
     defaultConfig {
         // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
-        applicationId = "com.example.reading_assist"
+        applicationId = "com.example.lumina"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion

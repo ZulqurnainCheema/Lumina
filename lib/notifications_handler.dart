@@ -1,7 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_timezone/flutter_timezone.dart';
-import 'package:reading_assist/services/database_services.dart';
+import 'package:lumina/services/database_services.dart';
 import 'package:timezone/data/latest.dart' as tz_data;
 import 'package:timezone/timezone.dart' as tz;
 
@@ -59,9 +59,10 @@ class NotificationsHandler {
     await initialize();
     await _plugin.cancelAll();
 
-    final List<DateTime> recentEntries =
-        await DatabaseServices.instance.getRecentEntryTimes();
-    final DateTime? lastEntry = await DatabaseServices.instance.getLastEntryTime();
+    final List<DateTime> recentEntries = await DatabaseServices.instance
+        .getRecentEntryTimes();
+    final DateTime? lastEntry = await DatabaseServices.instance
+        .getLastEntryTime();
 
     if (recentEntries.isEmpty) {
       return;
@@ -70,7 +71,8 @@ class NotificationsHandler {
     final int reminderMinuteOfDay =
         _deriveReminderMinuteOfDay(recentEntries) - _leadMinutes;
     final int normalizedReminderMinute =
-        ((reminderMinuteOfDay % _minutesPerDay) + _minutesPerDay) % _minutesPerDay;
+        ((reminderMinuteOfDay % _minutesPerDay) + _minutesPerDay) %
+        _minutesPerDay;
 
     if (lastEntry == null ||
         DateTime.now().difference(lastEntry).inHours >= _staleThresholdHours) {
@@ -91,19 +93,17 @@ class NotificationsHandler {
   }
 
   Future<void> _requestPermissions() async {
-    final AndroidFlutterLocalNotificationsPlugin? androidPlugin =
-        _plugin.resolvePlatformSpecificImplementation<
-            AndroidFlutterLocalNotificationsPlugin>();
+    final AndroidFlutterLocalNotificationsPlugin? androidPlugin = _plugin
+        .resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin
+        >();
     await androidPlugin?.requestNotificationsPermission();
 
-    final IOSFlutterLocalNotificationsPlugin? iosPlugin =
-        _plugin.resolvePlatformSpecificImplementation<
-            IOSFlutterLocalNotificationsPlugin>();
-    await iosPlugin?.requestPermissions(
-      alert: true,
-      badge: true,
-      sound: true,
-    );
+    final IOSFlutterLocalNotificationsPlugin? iosPlugin = _plugin
+        .resolvePlatformSpecificImplementation<
+          IOSFlutterLocalNotificationsPlugin
+        >();
+    await iosPlugin?.requestPermissions(alert: true, badge: true, sound: true);
   }
 
   Future<void> _scheduleHabitSeries(int reminderMinuteOfDay) async {
@@ -166,10 +166,9 @@ class NotificationsHandler {
   }
 
   int _deriveReminderMinuteOfDay(List<DateTime> entries) {
-    final List<int> minutes = entries
-        .map((entry) => (entry.hour * 60) + entry.minute)
-        .toList()
-      ..sort();
+    final List<int> minutes =
+        entries.map((entry) => (entry.hour * 60) + entry.minute).toList()
+          ..sort();
     return minutes[minutes.length ~/ 2];
   }
 
@@ -194,7 +193,8 @@ class NotificationsHandler {
   }
 
   NotificationDetails get _notificationDetails {
-    const AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
+    const AndroidNotificationDetails
+    androidDetails = AndroidNotificationDetails(
       'reading_habit_channel',
       'Reading Habit',
       channelDescription:
@@ -205,10 +205,7 @@ class NotificationsHandler {
 
     const DarwinNotificationDetails iosDetails = DarwinNotificationDetails();
 
-    return const NotificationDetails(
-      android: androidDetails,
-      iOS: iosDetails,
-    );
+    return const NotificationDetails(android: androidDetails, iOS: iosDetails);
   }
 }
 

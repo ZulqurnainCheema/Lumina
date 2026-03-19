@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:reading_assist/models/entries.dart';
-import 'package:reading_assist/notifications_handler.dart';
-import 'package:reading_assist/theme.dart';
-import 'package:reading_assist/services/database_services.dart';
+import 'package:lumina/models/entries.dart';
+import 'package:lumina/notifications_handler.dart';
+import 'package:lumina/theme.dart';
+import 'package:lumina/services/database_services.dart';
 
 class AddBookProgress extends StatefulWidget {
   const AddBookProgress({super.key, required this.id});
@@ -22,11 +22,8 @@ class _AddBookProgressState extends State<AddBookProgress> {
   final _DatabaseServices = DatabaseServices.instance;
   bool _isbypages = false;
 
-  TextStyle? get _fieldTextStyle =>
-      Theme.of(context).textTheme.bodyMedium?.copyWith(
-        color: LuminaColors.white,
-        fontWeight: FontWeight.w500,
-      );
+  TextStyle? get _fieldTextStyle => Theme.of(context).textTheme.bodyMedium
+      ?.copyWith(color: LuminaColors.white, fontWeight: FontWeight.w500);
 
   Future<void> SubmissionHandler() async {
     if (_formKey.currentState!.validate()) {

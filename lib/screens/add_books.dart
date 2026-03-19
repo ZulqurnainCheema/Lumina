@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:reading_assist/services/database_services.dart';
-import 'package:reading_assist/theme.dart';
+import 'package:lumina/services/database_services.dart';
+import 'package:lumina/theme.dart';
 import 'package:dio/dio.dart';
 
 class Addbooks extends StatefulWidget {
@@ -21,11 +21,8 @@ class _AddbooksState extends State<Addbooks> {
   String _coverUrl = 'assets/book.jpg';
   bool _isFetchingCover = false;
 
-  TextStyle? get _fieldTextStyle =>
-      Theme.of(context).textTheme.bodyMedium?.copyWith(
-        color: LuminaColors.white,
-        fontWeight: FontWeight.w500,
-      );
+  TextStyle? get _fieldTextStyle => Theme.of(context).textTheme.bodyMedium
+      ?.copyWith(color: LuminaColors.white, fontWeight: FontWeight.w500);
 
   Future<void> fetchCover() async {
     if (_isFetchingCover) {

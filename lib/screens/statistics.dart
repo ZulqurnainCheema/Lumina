@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:reading_assist/services/database_services.dart';
-import 'package:reading_assist/theme.dart';
+import 'package:lumina/services/database_services.dart';
+import 'package:lumina/theme.dart';
 import 'package:syncfusion_flutter_charts/charts.dart';
 
 class StatisticsScreen extends StatefulWidget {

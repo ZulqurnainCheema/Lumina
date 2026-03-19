@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:reading_assist/services/database_services.dart';
+import 'package:lumina/services/database_services.dart';
 
 class SummaryPage extends StatelessWidget {
   final int id;
