@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:lumina/models/entries.dart';
-import 'package:lumina/notifications_handler.dart';
 import 'package:lumina/theme.dart';
 import 'package:lumina/services/database_services.dart';
 
@@ -50,7 +49,6 @@ class _AddBookProgressState extends State<AddBookProgress> {
         createdAt: DateTime.now().toIso8601String(),
       );
       await _DatabaseServices.addEntry(newEntry.toMap());
-      await NotificationsHandler.instance.refreshSchedules();
       if (!context.mounted) {
         return;
       }

@@ -3,7 +3,6 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/material_symbols_icons.dart';
 import 'package:lumina/models/books.dart';
-import 'package:lumina/notifications_handler.dart';
 import 'package:lumina/screens/add_book_progress.dart';
 import 'package:lumina/screens/add_books.dart';
 import 'package:lumina/screens/book_progress.dart';
@@ -14,6 +13,7 @@ import 'theme.dart';
 import 'package:go_router/go_router.dart';
 import 'services/database_services.dart';
 import 'screens/statistics.dart';
+import 'package:lumina/notifications.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -25,8 +25,8 @@ void main() async {
     sqfliteFfiInit();
     databaseFactory = databaseFactoryFfi;
   }
-  await NotificationsHandler.instance.initialize();
-  await NotificationsHandler.instance.refreshSchedules();
+  Notifications notifications = Notifications();
+  await notifications.init();
   runApp(const MyApp());
 }
 
