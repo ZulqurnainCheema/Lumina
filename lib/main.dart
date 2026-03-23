@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:lumina/screens/settings.dart';
 import 'package:material_symbols_icons/material_symbols_icons.dart';
 import 'package:lumina/models/books.dart';
 import 'package:lumina/screens/add_book_progress.dart';
@@ -13,7 +14,7 @@ import 'theme.dart';
 import 'package:go_router/go_router.dart';
 import 'services/database_services.dart';
 import 'screens/statistics.dart';
-import 'package:lumina/notifications.dart';
+import 'package:lumina/notifications_center.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -25,8 +26,6 @@ void main() async {
     sqfliteFfiInit();
     databaseFactory = databaseFactoryFfi;
   }
-  Notifications notifications = Notifications();
-  await notifications.init();
   runApp(const MyApp());
 }
 
@@ -86,6 +85,12 @@ final GoRouter _router = GoRouter(
             return const StatisticsScreen();
           },
         ),
+        GoRoute(
+          path: 'settings',
+          builder: (context, state) {
+            return const Settings();
+          },
+        ),
       ],
     ),
   ],
@@ -103,6 +108,11 @@ class _MyHomePageState extends State<MyHomePage> {
   final DatabaseServices _databaseServices = DatabaseServices.instance;
   late Future<List<Books>> _booksFuture;
 
+  Future<void> _warmUpNotifications() async {
+    await NotificationsCenter.instance.initialize();
+    await NotificationsCenter.instance.refreshHabitReminders();
+  }
+
   void _onRouteChange() {
     final location = _router.routerDelegate.currentConfiguration.uri.toString();
     if (location == '/' && mounted) {
@@ -115,6 +125,9 @@ class _MyHomePageState extends State<MyHomePage> {
     super.initState();
     _booksFuture = _databaseServices.getBooks();
     _router.routerDelegate.addListener(_onRouteChange);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      unawaited(_warmUpNotifications());
+    });
   }
 
   @override
@@ -366,7 +379,7 @@ class _MyHomePageState extends State<MyHomePage> {
               children: [
                 IconButton(
                   onPressed: () {
-                    GoRouter.of(context).push('/home');
+                    GoRouter.of(context).push('/');
                   },
                   icon: Icon(Symbols.home),
                   focusColor: Theme.of(context).colorScheme.primary,
@@ -387,7 +400,9 @@ class _MyHomePageState extends State<MyHomePage> {
                   color: LuminaColors.neutral,
                 ),
                 IconButton(
-                  onPressed: () {},
+                  onPressed: () {
+                    GoRouter.of(context).push('/settings');
+                  },
                   icon: Icon(Symbols.settings),
                   focusColor: Theme.of(context).colorScheme.primary,
                   color: LuminaColors.neutral,

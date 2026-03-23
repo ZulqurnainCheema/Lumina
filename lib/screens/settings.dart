@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:lumina/notifications.dart';
+import 'package:lumina/notifications_center.dart';
 
 class Settings extends StatefulWidget {
   const Settings({super.key});
@@ -14,7 +14,7 @@ class _SettingsState extends State<Settings> {
     return Center(
       child: TextButton(
         onPressed: () {
-          Notifications().showNotification(
+          NotificationsCenter.instance.showNotification(
             'Test Notification',
             'This is a test notification from Lumina!',
           );
