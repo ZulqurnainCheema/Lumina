@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:lumina/screens/settings.dart';
@@ -14,7 +13,6 @@ import 'theme.dart';
 import 'package:go_router/go_router.dart';
 import 'services/database_services.dart';
 import 'screens/statistics.dart';
-import 'package:lumina/notifications_center.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -108,11 +106,6 @@ class _MyHomePageState extends State<MyHomePage> {
   final DatabaseServices _databaseServices = DatabaseServices.instance;
   late Future<List<Books>> _booksFuture;
 
-  Future<void> _warmUpNotifications() async {
-    await NotificationsCenter.instance.initialize();
-    await NotificationsCenter.instance.refreshHabitReminders();
-  }
-
   void _onRouteChange() {
     final location = _router.routerDelegate.currentConfiguration.uri.toString();
     if (location == '/' && mounted) {
@@ -125,9 +118,6 @@ class _MyHomePageState extends State<MyHomePage> {
     super.initState();
     _booksFuture = _databaseServices.getBooks();
     _router.routerDelegate.addListener(_onRouteChange);
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      unawaited(_warmUpNotifications());
-    });
   }
 
   @override

@@ -42,9 +42,6 @@ dependencies:
   path: ^1.9.1
   sqflite_common_ffi: ^2.4.0+2
   sqflite_common_ffi_web: ^1.1.1
-  flutter_local_notifications: ^19.4.2
-  timezone: ^0.10.1
-  flutter_timezone: ^4.1.1
   syncfusion_flutter_charts: ^33.1.44
 
 dev_dependencies:
