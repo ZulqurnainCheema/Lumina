@@ -1,6 +1,13 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:lumina/screens/reading_plan.dart';
+import 'package:lumina/screens/reading_session.dart';
 import 'package:lumina/screens/settings.dart';
+import 'package:lumina/screens/weekly_review.dart';
+import 'package:lumina/services/habit_services.dart';
+import 'package:lumina/services/home_widget_service.dart';
+import 'package:lumina/services/notifications_center.dart';
+import 'package:lumina/widgets/today_card.dart';
 import 'package:material_symbols_icons/material_symbols_icons.dart';
 import 'package:lumina/models/books.dart';
 import 'package:lumina/screens/add_book_progress.dart';
@@ -67,7 +74,10 @@ final GoRouter _router = GoRouter(
           path: 'add-book-progress/:id',
           builder: (BuildContext context, GoRouterState state) {
             final id = state.pathParameters['id']!;
-            return AddBookProgress(id: int.parse(id));
+            return AddBookProgress(
+              id: int.parse(id),
+              durationSeconds: state.extra as int?,
+            );
           },
         ),
         GoRoute(
@@ -75,6 +85,25 @@ final GoRouter _router = GoRouter(
           builder: (context, state) {
             final id = state.pathParameters['id']!;
             return SummaryPage(id: int.parse(id));
+          },
+        ),
+        GoRoute(
+          path: 'read/:id',
+          builder: (context, state) {
+            final id = state.pathParameters['id']!;
+            return ReadingSession(id: int.parse(id));
+          },
+        ),
+        GoRoute(
+          path: 'plan',
+          builder: (context, state) {
+            return const ReadingPlan();
+          },
+        ),
+        GoRoute(
+          path: 'review',
+          builder: (context, state) {
+            return const WeeklyReview();
           },
         ),
         GoRoute(
@@ -105,6 +134,7 @@ class MyHomePage extends StatefulWidget {
 class _MyHomePageState extends State<MyHomePage> {
   final DatabaseServices _databaseServices = DatabaseServices.instance;
   late Future<List<Books>> _booksFuture;
+  int _todayVersion = 0;
 
   void _onRouteChange() {
     final location = _router.routerDelegate.currentConfiguration.uri.toString();
@@ -118,6 +148,170 @@ class _MyHomePageState extends State<MyHomePage> {
     super.initState();
     _booksFuture = _databaseServices.getBooks();
     _router.routerDelegate.addListener(_onRouteChange);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _onAppOpened();
+    });
+  }
+
+  Future<void> _onAppOpened() async {
+    await NotificationsCenter.instance.refresh();
+    await HomeWidgetService.update();
+    if (!mounted) {
+      return;
+    }
+    final int sessionBookId = await _databaseServices.getIntSetting(
+      'sessionBookId',
+      -1,
+    );
+    if (!mounted) {
+      return;
+    }
+    if (sessionBookId >= 0) {
+      GoRouter.of(context).push('/read/$sessionBookId');
+      return;
+    }
+    if (await HomeWidgetService.launchedFromWidget()) {
+      await _startReading();
+      return;
+    }
+    await _showOpenPrompt();
+  }
+
+  Future<void> _startReading() async {
+    final Books? book = await _databaseServices.getCurrentBook();
+    if (!mounted) {
+      return;
+    }
+    if (book == null) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Add a book first.')));
+      return;
+    }
+    GoRouter.of(context).push('/read/${book.id}');
+  }
+
+  // At most one prompt per app open, most useful first.
+  Future<void> _showOpenPrompt() async {
+    final DateTime now = DateTime.now();
+    final String today = HabitServices.dateKey(now);
+
+    if (await _databaseServices.getSetting('planPrompted') == null) {
+      await _databaseServices.setSetting('planPrompted', today);
+      if (!mounted) {
+        return;
+      }
+      GoRouter.of(context).push('/plan');
+      return;
+    }
+
+    final bool freshStart = now.weekday == DateTime.monday || now.day == 1;
+    if (freshStart &&
+        await _databaseServices.getSetting('reviewOffered') != today &&
+        await _databaseServices.getSetting('lastReviewDate') != today &&
+        await _databaseServices.getLastEntryTime() != null) {
+      await _databaseServices.setSetting('reviewOffered', today);
+      if (!mounted) {
+        return;
+      }
+      final bool? review = await _askPrompt(
+        title: 'New week, clean slate',
+        body: 'Take two minutes to look at last week before this one starts.',
+        confirm: 'Review',
+        dismiss: 'Later',
+      );
+      if (review == true && mounted) {
+        GoRouter.of(context).push('/review');
+      }
+      return;
+    }
+
+    for (final Books book in await _databaseServices.getStaleBooks(today)) {
+      if (await _databaseServices.getSetting('staleAsked_${book.id}') ==
+          today.substring(0, 7)) {
+        continue;
+      }
+      await _databaseServices.setSetting(
+        'staleAsked_${book.id}',
+        today.substring(0, 7),
+      );
+      if (!mounted) {
+        return;
+      }
+      final bool? keep = await _askPrompt(
+        title: 'Still into ${book.title}?',
+        body:
+            'You have not opened it in a week. Dropping a book you are not '
+            'enjoying is not failing. The pages you read still count.',
+        confirm: 'Keep it',
+        dismiss: 'Drop it',
+      );
+      if (keep == false) {
+        await _databaseServices.updateBook(book.id, {
+          'abandonedAt': now.toIso8601String(),
+        });
+        _refreshBooks();
+      }
+      return;
+    }
+
+    if (await _databaseServices.getSetting('recallShown') == today) {
+      return;
+    }
+    final Map<String, dynamic>? recall = await _databaseServices.getRecallEntry(
+      today,
+    );
+    if (recall == null || !mounted) {
+      return;
+    }
+    await _databaseServices.setSetting('recallShown', today);
+    if (!mounted) {
+      return;
+    }
+    final bool? reveal = await _askPrompt(
+      title: 'What do you remember?',
+      body:
+          'You wrote a note about ${recall['title']}. Try to recall it before '
+          'you look.',
+      confirm: 'Show my note',
+      dismiss: 'Skip',
+    );
+    if (reveal == true && mounted) {
+      await _askPrompt(
+        title: recall['title'] as String,
+        body: recall['summary'] as String,
+        confirm: 'Got it',
+      );
+    }
+  }
+
+  Future<bool?> _askPrompt({
+    required String title,
+    required String body,
+    required String confirm,
+    String? dismiss,
+  }) {
+    return showDialog<bool>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          backgroundColor: LuminaColors.surface,
+          title: Text(title),
+          content: Text(body),
+          actions: [
+            if (dismiss != null)
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: Text(dismiss),
+              ),
+            TextButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: Text(confirm),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   @override
@@ -129,6 +323,7 @@ class _MyHomePageState extends State<MyHomePage> {
   void _refreshBooks() {
     setState(() {
       _booksFuture = _databaseServices.getBooks();
+      _todayVersion++;
     });
   }
 
@@ -166,176 +361,196 @@ class _MyHomePageState extends State<MyHomePage> {
             bottom: BorderSide(color: LuminaColors.borderSubtle, width: 0.5),
           ),
         ),
-        body: Container(
-          padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 20),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.start,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            spacing: 10,
-            children: [
-              Text(
-                "My Library",
-                style: Theme.of(context).textTheme.displayLarge,
-              ),
-              Text(
-                'You have 4 books in your library.',
-
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
-              TabBar(
-                isScrollable: true,
-                tabAlignment: TabAlignment.start,
-                dividerColor: LuminaColors.neutral,
-                dividerHeight: 0.2,
-                unselectedLabelStyle: Theme.of(context).textTheme.bodySmall,
-                tabs: [
-                  Tab(text: "Reading"),
-                  Tab(text: "Finished"),
-                  Tab(text: "Want to Read"),
-                ],
-              ),
-              SizedBox(height: 12),
-              Expanded(
-                child: TabBarView(
+        body: NestedScrollView(
+          headerSliverBuilder: (context, innerBoxIsScrolled) => [
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(20, 40, 20, 10),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  spacing: 10,
                   children: [
-                    FutureBuilder<List<Books>>(
-                      future: _booksFuture,
-                      builder: (context, snapshot) {
-                        if (snapshot.connectionState ==
-                            ConnectionState.waiting) {
-                          return const Center(
-                            child: CircularProgressIndicator(),
-                          );
-                        }
-                        if (snapshot.hasError) {
-                          return Center(
-                            child: Text('Error: ${snapshot.error}'),
-                          );
-                        }
-                        final List<Books> books = snapshot.data ?? <Books>[];
-                        if (books.isEmpty) {
-                          return const Center(
-                            child: Text('No books in your library yet.'),
-                          );
-                        }
-                        final List<Books> readingBooks = books
-                            .where((book) => book.status == 'reading')
-                            .toList();
-                        if (readingBooks.isEmpty) {
-                          return const Center(
-                            child: Text('No books currently being read.'),
-                          );
-                        }
-                        return ListView.builder(
-                          itemCount: readingBooks.length,
-                          itemBuilder: (context, index) {
-                            final Books book = readingBooks[index];
-                            return Padding(
-                              padding: const EdgeInsets.only(bottom: 12),
-                              child: buildBookCard(
-                                context,
-                                book.id,
-                                book.title,
-                                book.author,
-                                book.coverUrl,
-                                onDeleted: _refreshBooks,
-                              ),
-                            );
-                          },
-                        );
-                      },
+                    Text(
+                      "My Library",
+                      style: Theme.of(context).textTheme.displayLarge,
                     ),
-                    FutureBuilder<List<Books>>(
-                      future: _booksFuture,
-                      builder: (context, snapshot) {
-                        if (snapshot.connectionState ==
-                            ConnectionState.waiting) {
-                          return const Center(
-                            child: CircularProgressIndicator(),
-                          );
-                        }
-                        if (snapshot.hasError) {
-                          return Center(
-                            child: Text('Error: ${snapshot.error}'),
-                          );
-                        }
-                        final List<Books> books = snapshot.data ?? <Books>[];
-                        final List<Books> finishedBooks = books
-                            .where((book) => book.status == 'read')
-                            .toList();
-                        if (finishedBooks.isEmpty) {
-                          return const Center(
-                            child: Text('No finished books yet.'),
-                          );
-                        }
-                        return ListView.builder(
-                          itemCount: finishedBooks.length,
-                          itemBuilder: (context, index) {
-                            final Books book = finishedBooks[index];
-
-                            return Padding(
-                              padding: const EdgeInsets.only(bottom: 12),
-                              child: buildBookCard(
-                                context,
-                                book.id,
-                                book.title,
-                                book.author,
-                                book.coverUrl,
-                                onDeleted: _refreshBooks,
-                              ),
-                            );
-                          },
-                        );
-                      },
-                    ),
-                    FutureBuilder<List<Books>>(
-                      future: _booksFuture,
-                      builder: (context, snapshot) {
-                        if (snapshot.connectionState ==
-                            ConnectionState.waiting) {
-                          return const Center(
-                            child: CircularProgressIndicator(),
-                          );
-                        }
-                        if (snapshot.hasError) {
-                          return Center(
-                            child: Text('Error: ${snapshot.error}'),
-                          );
-                        }
-                        final List<Books> books = snapshot.data ?? <Books>[];
-                        final List<Books> wantToReadBooks = books
-                            .where((book) => book.status == 'to-read')
-                            .toList();
-                        if (wantToReadBooks.isEmpty) {
-                          return const Center(
-                            child: Text(
-                              'No books in your want-to-read list yet.',
-                            ),
-                          );
-                        }
-                        return ListView.builder(
-                          itemCount: wantToReadBooks.length,
-                          itemBuilder: (context, index) {
-                            final Books book = wantToReadBooks[index];
-                            return Padding(
-                              padding: const EdgeInsets.only(bottom: 12),
-                              child: buildBookCard(
-                                context,
-                                book.id,
-                                book.title,
-                                book.author,
-                                book.coverUrl,
-                                onDeleted: _refreshBooks,
-                              ),
-                            );
-                          },
-                        );
-                      },
-                    ),
+                    TodayCard(key: ValueKey<int>(_todayVersion)),
                   ],
                 ),
               ),
-            ],
+            ),
+          ],
+          body: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              spacing: 10,
+              children: [
+                TabBar(
+                  isScrollable: true,
+                  tabAlignment: TabAlignment.start,
+                  dividerColor: LuminaColors.neutral,
+                  dividerHeight: 0.2,
+                  unselectedLabelStyle: Theme.of(context).textTheme.bodySmall,
+                  tabs: [
+                    Tab(text: "Reading"),
+                    Tab(text: "Finished"),
+                    Tab(text: "Want to Read"),
+                  ],
+                ),
+                SizedBox(height: 12),
+                Expanded(
+                  child: TabBarView(
+                    children: [
+                      FutureBuilder<List<Books>>(
+                        future: _booksFuture,
+                        builder: (context, snapshot) {
+                          if (snapshot.connectionState ==
+                              ConnectionState.waiting) {
+                            return const Center(
+                              child: CircularProgressIndicator(),
+                            );
+                          }
+                          if (snapshot.hasError) {
+                            return Center(
+                              child: Text('Error: ${snapshot.error}'),
+                            );
+                          }
+                          final List<Books> books = snapshot.data ?? <Books>[];
+                          if (books.isEmpty) {
+                            return const Center(
+                              child: Text('No books in your library yet.'),
+                            );
+                          }
+                          final List<Books> readingBooks = books
+                              .where(
+                                (book) =>
+                                    book.status == 'reading' &&
+                                    book.abandonedAt == null,
+                              )
+                              .toList();
+                          if (readingBooks.isEmpty) {
+                            return const Center(
+                              child: Text('No books currently being read.'),
+                            );
+                          }
+                          return ListView.builder(
+                            itemCount: readingBooks.length,
+                            itemBuilder: (context, index) {
+                              final Books book = readingBooks[index];
+                              return Padding(
+                                padding: const EdgeInsets.only(bottom: 12),
+                                child: buildBookCard(
+                                  context,
+                                  book.id,
+                                  book.title,
+                                  book.author,
+                                  book.coverUrl,
+                                  onDeleted: _refreshBooks,
+                                ),
+                              );
+                            },
+                          );
+                        },
+                      ),
+                      FutureBuilder<List<Books>>(
+                        future: _booksFuture,
+                        builder: (context, snapshot) {
+                          if (snapshot.connectionState ==
+                              ConnectionState.waiting) {
+                            return const Center(
+                              child: CircularProgressIndicator(),
+                            );
+                          }
+                          if (snapshot.hasError) {
+                            return Center(
+                              child: Text('Error: ${snapshot.error}'),
+                            );
+                          }
+                          final List<Books> books = snapshot.data ?? <Books>[];
+                          final List<Books> finishedBooks = books
+                              .where((book) => book.status == 'read')
+                              .toList();
+                          if (finishedBooks.isEmpty) {
+                            return const Center(
+                              child: Text('No finished books yet.'),
+                            );
+                          }
+                          return ListView.builder(
+                            itemCount: finishedBooks.length,
+                            itemBuilder: (context, index) {
+                              final Books book = finishedBooks[index];
+
+                              return Padding(
+                                padding: const EdgeInsets.only(bottom: 12),
+                                child: buildBookCard(
+                                  context,
+                                  book.id,
+                                  book.title,
+                                  book.author,
+                                  book.coverUrl,
+                                  onDeleted: _refreshBooks,
+                                ),
+                              );
+                            },
+                          );
+                        },
+                      ),
+                      FutureBuilder<List<Books>>(
+                        future: _booksFuture,
+                        builder: (context, snapshot) {
+                          if (snapshot.connectionState ==
+                              ConnectionState.waiting) {
+                            return const Center(
+                              child: CircularProgressIndicator(),
+                            );
+                          }
+                          if (snapshot.hasError) {
+                            return Center(
+                              child: Text('Error: ${snapshot.error}'),
+                            );
+                          }
+                          final List<Books> books = snapshot.data ?? <Books>[];
+                          final List<Books> wantToReadBooks = books
+                              .where(
+                                (book) =>
+                                    book.status == 'to-read' ||
+                                    (book.status == 'reading' &&
+                                        book.abandonedAt != null),
+                              )
+                              .toList();
+                          if (wantToReadBooks.isEmpty) {
+                            return const Center(
+                              child: Text(
+                                'No books in your want-to-read list yet.',
+                              ),
+                            );
+                          }
+                          return ListView.builder(
+                            itemCount: wantToReadBooks.length,
+                            itemBuilder: (context, index) {
+                              final Books book = wantToReadBooks[index];
+                              return Padding(
+                                padding: const EdgeInsets.only(bottom: 12),
+                                child: buildBookCard(
+                                  context,
+                                  book.id,
+                                  book.title,
+                                  book.author,
+                                  book.coverUrl,
+                                  onDeleted: _refreshBooks,
+                                ),
+                              );
+                            },
+                          );
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
         floatingActionButton: FloatingActionButton(
@@ -376,7 +591,8 @@ class _MyHomePageState extends State<MyHomePage> {
                   color: LuminaColors.neutral,
                 ),
                 IconButton(
-                  onPressed: () {},
+                  onPressed: _startReading,
+                  tooltip: 'start reading',
                   icon: Icon(Symbols.auto_stories),
                   focusColor: Theme.of(context).colorScheme.primary,
                   color: LuminaColors.neutral,

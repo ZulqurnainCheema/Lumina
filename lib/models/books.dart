@@ -6,6 +6,7 @@ class Books {
   final int totalPages;
   final String status;
   final String? createdAt;
+  final String? abandonedAt;
   Books({
     required this.id,
     required this.title,
@@ -14,6 +15,7 @@ class Books {
     required this.totalPages,
     required this.status,
     this.createdAt,
+    this.abandonedAt,
   });
   Map<String, dynamic> toMap() {
     return {
@@ -24,6 +26,7 @@ class Books {
       'totalPages': totalPages,
       'status': status,
       'createdAt': createdAt,
+      'abandonedAt': abandonedAt,
     };
   }
 }

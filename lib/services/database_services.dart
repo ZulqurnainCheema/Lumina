@@ -28,9 +28,16 @@ class DatabaseServices {
     }
     debugPrint('Database path: $path');
 
+    return openAt(path);
+  }
+
+  Future<Database> openAt(String path) {
     return openDatabase(
       path,
-      version: 1,
+      version: 2,
+      onConfigure: (db) async {
+        await db.execute('PRAGMA foreign_keys = ON');
+      },
       onCreate: (db, version) async {
         await db.execute('''
           CREATE TABLE books(
@@ -40,7 +47,8 @@ class DatabaseServices {
             coverUrl TEXT,
             totalPages INTEGER,
             status TEXT NOT NULL CHECK(status IN ('to-read', 'reading', 'read')),
-            createdAt TEXT
+            createdAt TEXT,
+            abandonedAt TEXT
           )
         ''');
 
@@ -51,29 +59,91 @@ class DatabaseServices {
             percentageRead INTEGER,
             summary TEXT,
             createdAt TEXT,
+            pagesRead INTEGER,
+            durationSeconds INTEGER,
+            hook TEXT,
+            absorption INTEGER,
             FOREIGN KEY (bookId) REFERENCES books (id) ON DELETE CASCADE
           )
         ''');
+
+        await _createHabitTables(db);
+      },
+      onUpgrade: (db, oldVersion, newVersion) async {
+        if (oldVersion < 2) {
+          await db.execute('ALTER TABLE books ADD COLUMN abandonedAt TEXT');
+          await db.execute('ALTER TABLE entries ADD COLUMN pagesRead INTEGER');
+          await db.execute(
+            'ALTER TABLE entries ADD COLUMN durationSeconds INTEGER',
+          );
+          await db.execute('ALTER TABLE entries ADD COLUMN hook TEXT');
+          await db.execute('ALTER TABLE entries ADD COLUMN absorption INTEGER');
+          await _createHabitTables(db);
+        }
       },
     );
+  }
+
+  Future<void> _createHabitTables(Database db) async {
+    await db.execute('''
+      CREATE TABLE settings(
+        key TEXT PRIMARY KEY,
+        value TEXT
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE streak_events(
+        date TEXT PRIMARY KEY,
+        type TEXT NOT NULL CHECK(type IN ('freeze', 'repair'))
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE habit_checks(
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        createdAt TEXT,
+        score INTEGER
+      )
+    ''');
+  }
+
+  @visibleForTesting
+  Future<void> useDatabase(Database? db) async {
+    await _db?.close();
+    _db = db;
   }
 
   Future<List<Books>> getBooks() async {
     final Database db = await database;
     final List<Map<String, dynamic>> maps = await db.query('books');
-    return maps
-        .map(
-          (map) => Books(
-            id: map['id'] as int,
-            title: map['title'] as String,
-            author: map['author'] as String,
-            coverUrl: (map['coverUrl'] as String?) ?? '',
-            totalPages: (map['totalPages'] as int?) ?? 0,
-            status: map['status'] as String,
-            createdAt: map['createdAt'] as String?,
-          ),
-        )
-        .toList();
+    return maps.map(_bookFromMap).toList();
+  }
+
+  Books _bookFromMap(Map<String, dynamic> map) {
+    return Books(
+      id: map['id'] as int,
+      title: map['title'] as String,
+      author: map['author'] as String,
+      coverUrl: (map['coverUrl'] as String?) ?? '',
+      totalPages: (map['totalPages'] as int?) ?? 0,
+      status: map['status'] as String,
+      createdAt: map['createdAt'] as String?,
+      abandonedAt: map['abandonedAt'] as String?,
+    );
+  }
+
+  Future<Books?> getBook(int bookId) async {
+    final Database db = await database;
+    final List<Map<String, dynamic>> rows = await db.query(
+      'books',
+      where: 'id = ?',
+      whereArgs: [bookId],
+    );
+    if (rows.isEmpty) {
+      return null;
+    }
+    return _bookFromMap(rows.first);
   }
 
   Future<void> addBook(Map<String, dynamic> book) async {
@@ -100,7 +170,7 @@ class DatabaseServices {
       whereArgs: [bookId],
     );
     if (result.isNotEmpty) {
-      return result.first['totalPages'] as int;
+      return result.first['totalPages'] as int? ?? 0;
     }
     return 0; // Default to 0 if book not found
   }
@@ -121,6 +191,10 @@ class DatabaseServices {
             percentageRead: entry['percentageRead'] as int? ?? 0,
             summary: entry['summary'] as String? ?? '',
             createdAt: entry['createdAt'] as String?,
+            pagesRead: entry['pagesRead'] as int?,
+            durationSeconds: entry['durationSeconds'] as int?,
+            hook: entry['hook'] as String?,
+            absorption: entry['absorption'] as int?,
           ),
         )
         .toList();
@@ -161,7 +235,11 @@ class DatabaseServices {
     final int remaining = (100 - currentTotal).clamp(0, 100);
     final int progressToInsert = requestedProgress.clamp(0, remaining);
 
-    if (progressToInsert <= 0) {
+    // A timed session or a few pages can round down to 0%; it still counts.
+    final bool hasActivity =
+        ((entry['durationSeconds'] as num?) ?? 0) > 0 ||
+        ((entry['pagesRead'] as num?) ?? 0) > 0;
+    if (progressToInsert <= 0 && !hasActivity) {
       return;
     }
 
@@ -173,6 +251,7 @@ class DatabaseServices {
     if (currentTotal == 0) {
       await updateBook(bookId, {'status': 'reading'});
     }
+    await updateBook(bookId, {'abandonedAt': null});
     if (newTotal > 80) {
       await updateBook(bookId, {'status': 'read'});
     }
@@ -206,6 +285,7 @@ class DatabaseServices {
     return result
         .map((row) => row['summary'] as String?)
         .whereType<String>()
+        .where((summary) => summary.trim().isNotEmpty)
         .toList();
   }
 
@@ -234,8 +314,8 @@ class DatabaseServices {
   Future<Map<String, dynamic>> getProgressReportbyDateofAllBooks() async {
     final Database db = await database;
     final List<Map<String, dynamic>> result = await db.rawQuery('''
-      SELECT 
-        date(createdAt) as date, 
+      SELECT
+        date(createdAt) as date,
         SUM(percentageRead) as totalProgress
       FROM entries
       WHERE createdAt IS NOT NULL
@@ -376,5 +456,243 @@ class DatabaseServices {
       return count.round();
     }
     return 0;
+  }
+
+  //Settings
+  Future<String?> getSetting(String key) async {
+    final Database db = await database;
+    final List<Map<String, dynamic>> rows = await db.query(
+      'settings',
+      columns: ['value'],
+      where: 'key = ?',
+      whereArgs: [key],
+    );
+    if (rows.isEmpty) {
+      return null;
+    }
+    return rows.first['value'] as String?;
+  }
+
+  Future<void> setSetting(String key, String? value) async {
+    final Database db = await database;
+    await db.insert('settings', {
+      'key': key,
+      'value': value,
+    }, conflictAlgorithm: ConflictAlgorithm.replace);
+  }
+
+  Future<int> getIntSetting(String key, int fallback) async {
+    final String? value = await getSetting(key);
+    return int.tryParse(value ?? '') ?? fallback;
+  }
+
+  //Habit functions
+  Future<Set<String>> getReadDates() async {
+    final Database db = await database;
+    final List<Map<String, dynamic>> rows = await db.rawQuery('''
+      SELECT DISTINCT date(createdAt) as entryDate
+      FROM entries
+      WHERE createdAt IS NOT NULL
+    ''');
+    return rows
+        .map((row) => row['entryDate'] as String?)
+        .whereType<String>()
+        .toSet();
+  }
+
+  Future<Map<String, String>> getStreakEvents() async {
+    final Database db = await database;
+    final List<Map<String, dynamic>> rows = await db.query('streak_events');
+    return {
+      for (final Map<String, dynamic> row in rows)
+        row['date'] as String: row['type'] as String,
+    };
+  }
+
+  Future<void> addStreakEvent(String date, String type) async {
+    final Database db = await database;
+    await db.insert('streak_events', {
+      'date': date,
+      'type': type,
+    }, conflictAlgorithm: ConflictAlgorithm.ignore);
+  }
+
+  Future<int> getSecondsOnDate(String date) async {
+    final Database db = await database;
+    final List<Map<String, dynamic>> result = await db.rawQuery(
+      '''
+      SELECT SUM(durationSeconds) as seconds
+      FROM entries
+      WHERE createdAt IS NOT NULL
+        AND date(createdAt) = ?
+      ''',
+      [date],
+    );
+    return (result.first['seconds'] as num?)?.toInt() ?? 0;
+  }
+
+  // The book being read most recently, or the newest unread one.
+  Future<Books?> getCurrentBook() async {
+    final Database db = await database;
+    final List<Map<String, dynamic>> reading = await db.rawQuery('''
+      SELECT books.*
+      FROM books
+      LEFT JOIN entries ON entries.bookId = books.id
+      WHERE books.status = 'reading' AND books.abandonedAt IS NULL
+      GROUP BY books.id
+      ORDER BY MAX(entries.createdAt) DESC
+      LIMIT 1
+    ''');
+    if (reading.isNotEmpty) {
+      return _bookFromMap(reading.first);
+    }
+    final List<Map<String, dynamic>> toRead = await db.query(
+      'books',
+      where: "status = 'to-read' AND abandonedAt IS NULL",
+      orderBy: 'createdAt DESC',
+      limit: 1,
+    );
+    if (toRead.isNotEmpty) {
+      return _bookFromMap(toRead.first);
+    }
+    return null;
+  }
+
+  Future<String?> getLatestHook(int bookId) async {
+    final Database db = await database;
+    final List<Map<String, dynamic>> rows = await db.query(
+      'entries',
+      columns: ['hook'],
+      where: "bookId = ? AND hook IS NOT NULL AND trim(hook) != ''",
+      whereArgs: [bookId],
+      orderBy: 'createdAt DESC',
+      limit: 1,
+    );
+    if (rows.isEmpty) {
+      return null;
+    }
+    return rows.first['hook'] as String?;
+  }
+
+  // Seconds per page for this book, falling back to every book.
+  Future<double?> getSecondsPerPage(int bookId) async {
+    final Database db = await database;
+    for (final String filter in <String>['AND bookId = $bookId', '']) {
+      final List<Map<String, dynamic>> result = await db.rawQuery('''
+        SELECT SUM(durationSeconds) as seconds, SUM(pagesRead) as pages
+        FROM entries
+        WHERE durationSeconds > 0 AND pagesRead > 0 $filter
+      ''');
+      final int seconds = (result.first['seconds'] as num?)?.toInt() ?? 0;
+      final int pages = (result.first['pages'] as num?)?.toInt() ?? 0;
+      if (pages > 0) {
+        return seconds / pages;
+      }
+    }
+    return null;
+  }
+
+  // A note written 1, 7 or 30 days ago, to be recalled before it is shown.
+  Future<Map<String, dynamic>?> getRecallEntry(String today) async {
+    final Database db = await database;
+    final List<Map<String, dynamic>> rows = await db.rawQuery(
+      '''
+      SELECT entries.summary as summary, books.title as title
+      FROM entries
+      JOIN books ON books.id = entries.bookId
+      WHERE entries.summary IS NOT NULL
+        AND trim(entries.summary) != ''
+        AND CAST(julianday(?) - julianday(date(entries.createdAt)) AS INTEGER)
+          IN (1, 7, 30)
+      ORDER BY entries.createdAt DESC
+      LIMIT 1
+      ''',
+      [today],
+    );
+    if (rows.isEmpty) {
+      return null;
+    }
+    return rows.first;
+  }
+
+  Future<List<Books>> getStaleBooks(String today, {int days = 7}) async {
+    final Database db = await database;
+    final List<Map<String, dynamic>> rows = await db.rawQuery(
+      '''
+      SELECT books.*
+      FROM books
+      JOIN entries ON entries.bookId = books.id
+      WHERE books.status = 'reading' AND books.abandonedAt IS NULL
+      GROUP BY books.id
+      HAVING julianday(?) - julianday(date(MAX(entries.createdAt))) >= ?
+      ''',
+      [today, days],
+    );
+    return rows.map(_bookFromMap).toList();
+  }
+
+  Future<Map<String, int>> getLifetimeTotals() async {
+    final Database db = await database;
+    final List<Map<String, dynamic>> result = await db.rawQuery('''
+      SELECT
+        SUM(pagesRead) as pages,
+        SUM(durationSeconds) as seconds,
+        MAX(durationSeconds) as longestSession
+      FROM entries
+    ''');
+    return {
+      'pages': (result.first['pages'] as num?)?.toInt() ?? 0,
+      'seconds': (result.first['seconds'] as num?)?.toInt() ?? 0,
+      'longestSession': (result.first['longestSession'] as num?)?.toInt() ?? 0,
+    };
+  }
+
+  Future<Map<String, int>> getPeriodSummary(String from, String to) async {
+    final Database db = await database;
+    final List<Map<String, dynamic>> result = await db.rawQuery(
+      '''
+      SELECT
+        COUNT(DISTINCT date(createdAt)) as days,
+        SUM(durationSeconds) as seconds,
+        SUM(pagesRead) as pages,
+        MAX(durationSeconds) as longestSession
+      FROM entries
+      WHERE createdAt IS NOT NULL
+        AND date(createdAt) >= ? AND date(createdAt) <= ?
+      ''',
+      [from, to],
+    );
+    return {
+      'days': (result.first['days'] as num?)?.toInt() ?? 0,
+      'seconds': (result.first['seconds'] as num?)?.toInt() ?? 0,
+      'pages': (result.first['pages'] as num?)?.toInt() ?? 0,
+      'longestSession': (result.first['longestSession'] as num?)?.toInt() ?? 0,
+    };
+  }
+
+  Future<int?> getBestReadingHour() async {
+    final Database db = await database;
+    final List<Map<String, dynamic>> rows = await db.rawQuery('''
+      SELECT CAST(strftime('%H', createdAt) AS INTEGER) as hour
+      FROM entries
+      WHERE createdAt IS NOT NULL
+      GROUP BY hour
+      ORDER BY COUNT(*) DESC
+      LIMIT 1
+    ''');
+    if (rows.isEmpty) {
+      return null;
+    }
+    return rows.first['hour'] as int?;
+  }
+
+  Future<void> addHabitCheck(int score, String createdAt) async {
+    final Database db = await database;
+    await db.insert('habit_checks', {'score': score, 'createdAt': createdAt});
+  }
+
+  Future<List<Map<String, dynamic>>> getHabitChecks() async {
+    final Database db = await database;
+    return db.query('habit_checks', orderBy: 'createdAt ASC');
   }
 }
