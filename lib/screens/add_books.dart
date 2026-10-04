@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lumina/services/database_services.dart';
 import 'package:lumina/theme.dart';
-import 'package:dio/dio.dart';
+import 'package:lumina/services/cover_services.dart';
 
 class Addbooks extends StatefulWidget {
   const Addbooks({super.key});
@@ -12,7 +12,6 @@ class Addbooks extends StatefulWidget {
 }
 
 class _AddbooksState extends State<Addbooks> {
-  final dio = Dio();
   final _formKey = GlobalKey<FormState>();
   final DatabaseServices _databaseServices = DatabaseServices.instance;
   final TextEditingController _titleController = TextEditingController();
@@ -28,58 +27,49 @@ class _AddbooksState extends State<Addbooks> {
     if (_isFetchingCover) {
       return;
     }
-    if (mounted) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) {
-          return;
-        }
-        setState(() {
-          _isFetchingCover = true;
-        });
-      });
+    if (_titleController.text.trim().isEmpty) {
+      _showMessage('Type the title first.');
+      return;
     }
+    setState(() {
+      _isFetchingCover = true;
+    });
     try {
-      debugPrint('fetchCover called');
-      final response = await dio.get(
-        'https://bookcover.longitood.com/bookcover',
-        queryParameters: {
-          'book_title': _titleController.text.trim(),
-          'author_name': _authorController.text.trim(),
-          'size': 'large',
-        },
+      final String? cover = await CoverServices.instance.findCover(
+        _titleController.text,
+        _authorController.text,
       );
-      debugPrint('status: ${response.statusCode}');
-      debugPrint('data: ${response.data}');
-      if (response.data['url'] != null) {
-        if (mounted) {
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (mounted) {
-              setState(() {
-                _coverUrl = response.data['url'].toString();
-              });
-            }
-          });
-        }
-      } else {
-        debugPrint('Cover URL not found in response');
+      if (!mounted) {
+        return;
       }
-    } on DioException catch (e) {
-      debugPrint('Dio error: ${e.message}');
-      debugPrint('response: ${e.response?.statusCode} ${e.response?.data}');
+      if (cover == null) {
+        _showMessage(
+          'No cover found for that title. The book will get a coloured cover.',
+        );
+      } else {
+        setState(() {
+          _coverUrl = cover;
+        });
+      }
     } catch (e) {
-      debugPrint('Unexpected error: $e');
+      debugPrint('Cover lookup failed: $e');
+      _showMessage('Could not reach the cover service. Check your connection.');
     } finally {
       if (mounted) {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (!mounted) {
-            return;
-          }
-          setState(() {
-            _isFetchingCover = false;
-          });
+        setState(() {
+          _isFetchingCover = false;
         });
       }
     }
+  }
+
+  void _showMessage(String message) {
+    if (!mounted) {
+      return;
+    }
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   @override
@@ -87,7 +77,6 @@ class _AddbooksState extends State<Addbooks> {
     _titleController.dispose();
     _authorController.dispose();
     _pagesController.dispose();
-    dio.close();
     super.dispose();
   }
 

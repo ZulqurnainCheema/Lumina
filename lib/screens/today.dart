@@ -356,7 +356,12 @@ class _BookCard extends StatelessWidget {
             const SizedBox(height: 16),
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.fromLTRB(16, 8, 6, 16).copyWith(right: 16),
+              padding: const EdgeInsets.fromLTRB(
+                16,
+                8,
+                6,
+                16,
+              ).copyWith(right: 16),
               decoration: BoxDecoration(
                 color: LuminaColors.tint(LuminaColors.recall),
                 borderRadius: BorderRadius.circular(18),

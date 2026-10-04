@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:lumina/models/books.dart';
+import 'package:lumina/services/cover_services.dart';
 import 'package:lumina/services/database_services.dart';
 import 'package:lumina/services/home_widget_service.dart';
 import 'package:lumina/theme.dart';
+import 'package:lumina/widgets/book_cover.dart';
 import 'package:lumina/widgets/section_header.dart';
 
 class EditBook extends StatefulWidget {
@@ -22,6 +24,8 @@ class _EditBookState extends State<EditBook> {
   final TextEditingController _pagesController = TextEditingController();
   final TextEditingController _bookmarkController = TextEditingController();
   bool _loaded = false;
+  String _coverUrl = '';
+  bool _isFetchingCover = false;
 
   TextStyle? get _fieldTextStyle => Theme.of(context).textTheme.bodyMedium
       ?.copyWith(color: LuminaColors.white, fontWeight: FontWeight.w500);
@@ -43,8 +47,45 @@ class _EditBookState extends State<EditBook> {
       _authorController.text = book.author;
       _pagesController.text = '${book.totalPages}';
       _bookmarkController.text = '$page';
+      _coverUrl = book.coverUrl;
       _loaded = true;
     });
+  }
+
+  Future<void> _findCover() async {
+    if (_isFetchingCover) {
+      return;
+    }
+    setState(() {
+      _isFetchingCover = true;
+    });
+    String? message;
+    try {
+      final String? cover = await CoverServices.instance.findCover(
+        _titleController.text,
+        _authorController.text,
+      );
+      if (cover == null) {
+        message = 'No cover found for that title.';
+      } else if (mounted) {
+        setState(() {
+          _coverUrl = cover;
+        });
+      }
+    } catch (error) {
+      message = 'Could not reach the cover service. Check your connection.';
+    }
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _isFetchingCover = false;
+    });
+    if (message != null) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(message)));
+    }
   }
 
   Future<void> _save() async {
@@ -55,6 +96,7 @@ class _EditBookState extends State<EditBook> {
       'title': _titleController.text.trim(),
       'author': _authorController.text.trim(),
       'totalPages': int.parse(_pagesController.text.trim()),
+      'coverUrl': _coverUrl,
     });
     await _databaseServices.setBookmark(
       widget.id,
@@ -123,6 +165,38 @@ class _EditBookState extends State<EditBook> {
                             }
                             return null;
                           },
+                        ),
+                        const SizedBox(height: 24),
+                        Row(
+                          children: [
+                            BookCover(
+                              coverUrl: _coverUrl,
+                              title: _titleController.text,
+                              width: 72,
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text('Cover', style: textTheme.titleMedium),
+                                  Text(
+                                    'Looked up from the title and author.',
+                                    style: textTheme.bodySmall,
+                                  ),
+                                  const SizedBox(height: 10),
+                                  OutlinedButton(
+                                    onPressed: _findCover,
+                                    child: Text(
+                                      _isFetchingCover
+                                          ? 'Finding cover...'
+                                          : 'Find cover',
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
                         ),
                         const SizedBox(height: 28),
                         const SectionHeader(label: 'Bookmark'),

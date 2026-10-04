@@ -5,7 +5,7 @@ Every UI test below drives the real app on Linux at phone size (412 × 892) agai
 ## Running the tests
 
 ```bash
-# Logic: streaks, freezes, repair, migration, reminders, backup, research entries (38 tests, about 1 second)
+# Logic: streaks, freezes, repair, migration, reminders, backup, research entries (40 tests, about 1 second)
 flutter test
 
 # UI flows, one or more screenshots per test (18 tests, 3 to 5 minutes, needs a display)
@@ -259,5 +259,7 @@ With two books in progress, the most recent is the main card and the other appea
 | backup | a file that is not a backup is refused and changes nothing | Random files, other apps' files and backups from a newer version are rejected |
 | backup | a backup with a broken row restores nothing | A damaged file rolls back completely instead of half-restoring |
 | backup | the file is named by date | `lumina-backup-2026-03-05.json` |
+| covers | a title is also tried without its subtitle | "Ancient Philosophy: A New History..." is also searched as "Ancient Philosophy" |
+| covers | the first search result with a cover is used | Editions without a cover are skipped; an error page gives no cover instead of a crash |
 | research | every why chip in the app points at a real entry | No "Why?" chip can open an empty sheet |
 | research | every entry cites a source or says it has none | No finding is shown without a citation or an explicit "no study" note |

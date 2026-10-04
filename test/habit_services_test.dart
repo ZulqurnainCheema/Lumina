@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lumina/research.dart';
 import 'package:lumina/services/backup_services.dart';
+import 'package:lumina/services/cover_services.dart';
 import 'package:lumina/services/database_services.dart';
 import 'package:lumina/services/habit_services.dart';
 import 'package:lumina/services/home_widget_service.dart';
@@ -732,6 +733,36 @@ void main() {
         BackupServices.instance.fileName(now: DateTime(2026, 3, 5)),
         'lumina-backup-2026-03-05.json',
       );
+    });
+  });
+
+  group('covers', () {
+    test('a title is also tried without its subtitle', () {
+      expect(
+        CoverServices.titleVariants(
+          'Ancient Philosophy: A New History of Western Philosophy',
+        ),
+        [
+          'Ancient Philosophy: A New History of Western Philosophy',
+          'Ancient Philosophy',
+        ],
+      );
+      expect(CoverServices.titleVariants(' Dune '), ['Dune']);
+      expect(CoverServices.titleVariants(''), isEmpty);
+    });
+
+    test('the first search result with a cover is used', () {
+      expect(
+        CoverServices.coverFromSearch({
+          'docs': [
+            {'title': 'no cover on this edition'},
+            {'cover_i': 1136939},
+          ],
+        }),
+        'https://covers.openlibrary.org/b/id/1136939-L.jpg',
+      );
+      expect(CoverServices.coverFromSearch({'docs': []}), isNull);
+      expect(CoverServices.coverFromSearch('error code: 522'), isNull);
     });
   });
 
