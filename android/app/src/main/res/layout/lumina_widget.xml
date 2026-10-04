@@ -5,7 +5,7 @@
     android:layout_height="match_parent"
     android:background="@drawable/lumina_widget_background"
     android:orientation="vertical"
-    android:padding="14dp">
+    android:padding="16dp">
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -18,7 +18,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="0"
-            android:textColor="#17CF54"
+            android:textColor="#F2B45A"
             android:textSize="28sp"
             android:textStyle="bold" />
 
@@ -28,14 +28,14 @@
             android:layout_marginStart="6dp"
             android:layout_weight="1"
             android:text="day streak"
-            android:textColor="#A0A0A0"
+            android:textColor="#ABA59B"
             android:textSize="13sp" />
 
         <TextView
             android:id="@+id/widget_minutes"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:textColor="#A0A0A0"
+            android:textColor="#ABA59B"
             android:textSize="13sp" />
     </LinearLayout>
 
@@ -46,7 +46,7 @@
         android:layout_height="6dp"
         android:layout_marginTop="6dp"
         android:max="100"
-        android:progressTint="#17CF54" />
+        android:progressTint="#8FD9A8" />
 
     <TextView
         android:id="@+id/widget_book"
@@ -56,7 +56,7 @@
         android:ellipsize="end"
         android:maxLines="1"
         android:text="Lumina"
-        android:textColor="#FFFFFF"
+        android:textColor="#F3EFE8"
         android:textSize="15sp"
         android:textStyle="bold" />
 
@@ -67,6 +67,6 @@
         android:ellipsize="end"
         android:maxLines="2"
         android:text="Tap to read."
-        android:textColor="#A0A0A0"
+        android:textColor="#ABA59B"
         android:textSize="13sp" />
 </LinearLayout>

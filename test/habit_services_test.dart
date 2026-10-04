@@ -5,6 +5,7 @@ import 'package:lumina/research.dart';
 import 'package:lumina/services/backup_services.dart';
 import 'package:lumina/services/database_services.dart';
 import 'package:lumina/services/habit_services.dart';
+import 'package:lumina/services/home_widget_service.dart';
 import 'package:lumina/services/notifications_center.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
@@ -367,6 +368,38 @@ void main() {
         'One page keeps the streak.',
         'Then: put the phone on the desk.',
       ]);
+    });
+  });
+
+  group('streak widget', () {
+    test('shows the last seven days, oldest first', () async {
+      final int book = await addBook();
+      // Seven days earn a freeze, one missed day spends it, then two read.
+      for (int day = 10; day >= 4; day--) {
+        await readOn(book, daysAgo(day));
+      }
+      await readOn(book, daysAgo(2));
+      await readOn(book, daysAgo(1));
+
+      final TodayData data = await habitServices.getToday(now: today);
+
+      expect(HomeWidgetService.weekCode(data.week), 'rrrsrro');
+      expect(data.week.last.date.day, today.day);
+      expect(
+        HomeWidgetService.streakStatus(data.streak),
+        'Read today to keep it',
+      );
+    });
+
+    test('marks a missed day and offers the repair', () async {
+      final int book = await addBook();
+      await readOn(book, daysAgo(3));
+      await readOn(book, daysAgo(2));
+
+      final TodayData data = await habitServices.getToday(now: today);
+
+      expect(HomeWidgetService.weekCode(data.week), 'mmmrrmo');
+      expect(HomeWidgetService.streakStatus(data.streak), 'Repair today');
     });
   });
 
