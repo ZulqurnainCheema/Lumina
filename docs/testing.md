@@ -8,7 +8,7 @@ Every UI test below drives the real app on Linux at phone size (412 × 892) agai
 # Logic: streaks, freezes, repair, migration, reminders, research entries (19 tests, about 1 second)
 flutter test
 
-# UI flows, one or more screenshots per test (13 tests, about 2 minutes, needs a display)
+# UI flows, one or more screenshots per test (13 tests, 2 to 4 minutes, needs a display)
 flutter test integration_test/habit_flow_test.dart -d linux
 ```
 
@@ -26,8 +26,9 @@ The reminder *content and timing rules* are unit tested (see the last table).
 
 ## How the screens are built
 
-- **One title per screen**, one filled green button for the main action, everything else outlined or plain.
-- **Three text levels**: white for what you read, grey for supporting text, small grey capitals for section labels. Green is only the main action and live progress; amber is only the streak.
+- **One hero per screen**: the minutes ring on Today, days read this week on Stats, the cover on a book page. One serif title, one filled green button for the main action; everything else is a tonal pill or plain text.
+- **Surfaces, not borders**: warm near-black background with cards one step lighter. Tinted cards mark meaning: amber is the streak, lavender is your own notes and questions, green is the main action and live progress.
+- **Two typefaces**: Fraunces for titles and big numbers, Manrope for everything else.
 - **A "Why?" chip** next to each mechanic opens the study it is built on. The full list is in Settings → The science. The text lives in `lib/research.dart`.
 
 ---
@@ -50,7 +51,7 @@ Built on: Gollwitzer & Sheeran (2006) on if-then plans; Wood & Neal (2007) on ha
 
 `today shows the streak, the open question and the time left`
 
-Nine days of reading, nothing logged today. Checks the streak, the banked freeze in words, the "One page keeps the streak" line, the question you left yourself, pages and time left, and that there is exactly one filled button on the screen.
+Nine days of reading, nothing logged today. Checks the streak, the week strip (six days ticked, today still open), the banked freeze in words, the "One page keeps the streak" line, the question you left yourself, pages and time left, and that there is exactly one filled button on the screen.
 
 Built on: Silverman & Barasch (2023) on streaks; Loewenstein (1994) on curiosity; Kivetz, Urminsky & Zheng (2006) on speeding up near the end.
 
@@ -60,7 +61,7 @@ Built on: Silverman & Barasch (2023) on streaks; Loewenstein (1994) on curiosity
 
 `a why chip opens the finding and its source`
 
-Taps the "Why?" chip on the streak card and checks the sheet shows the finding and the citation. Then follows "See all the science", and opens an entry in the "leaves out on purpose" group.
+Taps the "Why?" chip next to Now reading and checks the sheet shows the finding and the citation. Then follows "See all the science", and opens an entry in the "leaves out on purpose" group.
 
 | Why sheet | The science | Left out on purpose |
 |---|---|---|
@@ -142,7 +143,7 @@ Built on: Dai, Milkman & Riis (2014) on fresh starts at the beginning of a week 
 
 `settings changes the daily goal`
 
-Opens Settings from the gear on Today, picks 20 minutes, checks it is stored, and checks Today now reads "0 of 20 min today".
+Opens Settings from the gear on Today, picks 20 minutes, checks it is stored, and checks the ring on Today now reads "of 20 min today".
 
 Built on: Duolingo's own experiments (company-reported, not peer-reviewed) on keeping the goal separate from the streak.
 

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:lumina/models/entries.dart';
 import 'package:lumina/services/habit_services.dart';
 import 'package:lumina/services/home_widget_service.dart';
@@ -89,6 +90,7 @@ class _AddBookProgressState extends State<AddBookProgress> {
         absorption: _absorption,
       );
       await _DatabaseServices.addEntry(newEntry.toMap());
+      HapticFeedback.mediumImpact();
       await NotificationsCenter.instance.refresh();
       await HomeWidgetService.update();
       final Celebration? celebration = await HabitServices.instance

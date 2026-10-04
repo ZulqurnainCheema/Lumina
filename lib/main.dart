@@ -153,28 +153,103 @@ final GoRouter _router = GoRouter(
 class HomeShell extends StatelessWidget {
   const HomeShell({super.key, required this.navigationShell});
 
+  static const List<(IconData, String)> _destinations = <(IconData, String)>[
+    (Symbols.wb_sunny, 'Today'),
+    (Symbols.menu_book, 'Library'),
+    (Symbols.bar_chart, 'Stats'),
+  ];
+
   final StatefulNavigationShell navigationShell;
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      // The bar floats; screens scroll behind it.
+      extendBody: true,
       body: navigationShell,
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: navigationShell.currentIndex,
-        onDestinationSelected: (int index) {
-          navigationShell.goBranch(
-            index,
-            initialLocation: index == navigationShell.currentIndex,
-          );
-        },
-        destinations: const [
-          NavigationDestination(icon: Icon(Symbols.wb_sunny), label: 'Today'),
-          NavigationDestination(
-            icon: Icon(Symbols.menu_book),
-            label: 'Library',
+      bottomNavigationBar: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+          child: Container(
+            height: 64,
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(
+              color: LuminaColors.sheet,
+              borderRadius: BorderRadius.circular(999),
+              boxShadow: const [
+                BoxShadow(
+                  color: LuminaColors.shadow,
+                  blurRadius: 24,
+                  offset: Offset(0, 8),
+                ),
+              ],
+            ),
+            child: Row(
+              children: [
+                for (int index = 0; index < _destinations.length; index++)
+                  Expanded(
+                    child: _NavItem(
+                      icon: _destinations[index].$1,
+                      label: _destinations[index].$2,
+                      selected: index == navigationShell.currentIndex,
+                      onTap: () {
+                        navigationShell.goBranch(
+                          index,
+                          initialLocation:
+                              index == navigationShell.currentIndex,
+                        );
+                      },
+                    ),
+                  ),
+              ],
+            ),
           ),
-          NavigationDestination(icon: Icon(Symbols.bar_chart), label: 'Stats'),
-        ],
+        ),
+      ),
+    );
+  }
+}
+
+class _NavItem extends StatelessWidget {
+  const _NavItem({
+    required this.icon,
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final Color color = selected
+        ? LuminaColors.onAccent
+        : LuminaColors.textSecondary;
+    return InkWell(
+      borderRadius: BorderRadius.circular(999),
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        decoration: BoxDecoration(
+          color: selected ? LuminaColors.accent : Colors.transparent,
+          borderRadius: BorderRadius.circular(999),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, size: 22, color: color),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: Theme.of(
+                context,
+              ).textTheme.labelLarge?.copyWith(fontSize: 14, color: color),
+            ),
+          ],
+        ),
       ),
     );
   }

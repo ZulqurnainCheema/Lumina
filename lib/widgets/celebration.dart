@@ -17,10 +17,24 @@ Future<void> showCelebration(BuildContext context, Celebration celebration) {
       builder: (context, value, child) {
         return Transform.scale(scale: value, child: child);
       },
-      child: Icon(
-        Icons.local_fire_department_rounded,
-        size: celebration.big ? 88 : 56,
-        color: LuminaColors.streak,
+      // The one place a glow is used: a milestone.
+      child: Container(
+        width: celebration.big ? 136 : 96,
+        height: celebration.big ? 136 : 96,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          gradient: RadialGradient(
+            colors: [
+              LuminaColors.streak.withAlpha(90),
+              LuminaColors.streak.withAlpha(0),
+            ],
+          ),
+        ),
+        child: Icon(
+          Icons.local_fire_department_rounded,
+          size: celebration.big ? 80 : 52,
+          color: LuminaColors.streak,
+        ),
       ),
     ),
   );

@@ -145,12 +145,13 @@ void main() {
     await tester.tap(find.text('Save plan'));
     await settle(tester);
 
-    expect(
-      find.text('After I finish dinner, I read in the armchair.'),
-      findsOneWidget,
-    );
     expect(find.text('Add your first book'), findsOneWidget);
     await screenshot(tester, '02-today-empty');
+    await tester.scrollUntilVisible(
+      find.text('After I finish dinner, I read in the armchair.'),
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
   });
 
   testWidgets('today shows the streak, the open question and the time left', (
@@ -171,6 +172,8 @@ void main() {
     expect(find.text('9 day streak'), findsOneWidget);
     expect(find.text('One page keeps the streak.'), findsOneWidget);
     expect(find.text('1 freeze banked'), findsOneWidget);
+    // Nine read days fill the week strip; today is still open.
+    expect(find.byIcon(Icons.check_rounded), findsNWidgets(6));
     expect(find.text('Does Jessica survive the desert?'), findsOneWidget);
     expect(find.textContaining('pages left'), findsOneWidget);
     // One main action on the screen.
@@ -187,8 +190,11 @@ void main() {
     await tester.tap(find.text('Why?').first);
     await settle(tester);
 
-    expect(find.text('A streak you can repair'), findsOneWidget);
-    expect(find.textContaining('Silverman & Barasch (2023)'), findsOneWidget);
+    expect(find.text('Seeing how little is left'), findsOneWidget);
+    expect(
+      find.textContaining('Kivetz, Urminsky & Zheng (2006)'),
+      findsOneWidget,
+    );
     await screenshot(tester, '04-why-sheet');
 
     await tester.tap(find.text('See all the science'));
@@ -340,11 +346,11 @@ void main() {
     await tester.tap(find.text('Library'));
     await settle(tester);
 
-    expect(find.text('Dune'), findsOneWidget);
+    expect(find.text('Dune'), findsWidgets);
     expect(find.text('The Left Hand of Darkness'), findsNothing);
     await screenshot(tester, '12-library');
 
-    await tester.tap(find.text('Dune'));
+    await tester.tap(find.text('Dune').last);
     await settle(tester);
 
     expect(find.text('Read now'), findsOneWidget);
@@ -382,7 +388,7 @@ void main() {
     await tester.tap(find.text('Stats'));
     await settle(tester);
 
-    expect(find.text('7 of 7'), findsOneWidget);
+    expect(find.text('7 of 7 days'), findsOneWidget);
     expect(find.text('Longest streak'), findsOneWidget);
     await screenshot(tester, '15-stats');
 
@@ -435,7 +441,7 @@ void main() {
     expect(await databaseServices.getSetting('dailyGoalMinutes'), '20');
     await screenshot(tester, '18-settings');
     await goHome(tester);
-    expect(find.text('0 of 20 min today'), findsOneWidget);
+    expect(find.text('of 20 min today'), findsOneWidget);
   });
 
   testWidgets('a book untouched for a week can be dropped', (tester) async {

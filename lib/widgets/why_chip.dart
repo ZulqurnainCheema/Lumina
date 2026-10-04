@@ -93,7 +93,7 @@ class ResearchBody extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         if (showTitle) ...[
-          Text(research.title, style: textTheme.headlineMedium),
+          Text(research.title, style: textTheme.headlineLarge),
           const SizedBox(height: 12),
         ],
         Text(research.finding, style: textTheme.bodyMedium),
@@ -102,8 +102,8 @@ class ResearchBody extends StatelessWidget {
           width: double.infinity,
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
-            color: LuminaColors.background,
-            borderRadius: BorderRadius.circular(12),
+            color: LuminaColors.background.withAlpha(140),
+            borderRadius: BorderRadius.circular(18),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,

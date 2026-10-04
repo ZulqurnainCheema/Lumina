@@ -191,6 +191,7 @@ class _TodayState extends State<Today> with RouteRefresh<Today> {
     final DateTime now = DateTime.now();
     return Scaffold(
       body: SafeArea(
+        bottom: false,
         child: FutureBuilder<TodayData>(
           future: _todayFuture,
           builder: (context, snapshot) {
@@ -202,7 +203,7 @@ class _TodayState extends State<Today> with RouteRefresh<Today> {
             }
             final TodayData today = snapshot.data!;
             return ListView(
-              padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 120),
               children: [
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -223,14 +224,17 @@ class _TodayState extends State<Today> with RouteRefresh<Today> {
                     IconButton(
                       onPressed: () => GoRouter.of(context).push('/settings'),
                       tooltip: 'Settings',
+                      style: IconButton.styleFrom(
+                        backgroundColor: LuminaColors.surface,
+                      ),
                       icon: const Icon(Symbols.settings),
                       color: LuminaColors.textSecondary,
                     ),
                   ],
                 ),
-                const SizedBox(height: 24),
-                _ProgressCard(today: today),
-                const SizedBox(height: 28),
+                const SizedBox(height: 20),
+                _Hero(today: today),
+                const SizedBox(height: 20),
                 SectionHeader(
                   label: 'Now reading',
                   researchKey: today.pagesLeft == null ? null : 'finishLine',
@@ -241,16 +245,18 @@ class _TodayState extends State<Today> with RouteRefresh<Today> {
                     decoration: LuminaDecorations.card,
                     child: EmptyState(
                       icon: Symbols.menu_book,
+                      title: 'Pick your first book',
                       message:
-                          'Your current book shows up here, with one button '
-                          'to start reading.',
+                          'It shows up here with one button to start reading.',
                       actionLabel: 'Add your first book',
                       onAction: () => GoRouter.of(context).push('/add-books'),
                     ),
                   )
                 else
                   _BookCard(today: today),
-                const SizedBox(height: 20),
+                const SizedBox(height: 12),
+                _StreakCard(today: today),
+                const SizedBox(height: 12),
                 _PlanLine(plan: today.plan),
               ],
             );
@@ -261,8 +267,66 @@ class _TodayState extends State<Today> with RouteRefresh<Today> {
   }
 }
 
-class _ProgressCard extends StatelessWidget {
-  const _ProgressCard({required this.today});
+// The one big thing on the screen: minutes read today, inside the goal ring.
+class _Hero extends StatelessWidget {
+  const _Hero({required this.today});
+
+  final TodayData today;
+
+  @override
+  Widget build(BuildContext context) {
+    final TextTheme textTheme = Theme.of(context).textTheme;
+    final int minutesToday = today.secondsToday ~/ 60;
+    final double progress = (today.secondsToday / (today.goalMinutes * 60))
+        .clamp(0, 1);
+    return Center(
+      child: SizedBox(
+        width: 176,
+        height: 176,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            TweenAnimationBuilder<double>(
+              tween: Tween<double>(begin: 0, end: progress),
+              duration: const Duration(milliseconds: 600),
+              curve: Curves.easeOutCubic,
+              builder: (context, value, _) {
+                return CircularProgressIndicator(
+                  value: value,
+                  strokeWidth: 12,
+                  strokeCap: StrokeCap.round,
+                  backgroundColor: LuminaColors.surface,
+                  color: LuminaColors.accent,
+                );
+              },
+            ),
+            Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    '$minutesToday',
+                    style: textTheme.displayMedium?.copyWith(
+                      fontFeatures: const [FontFeature.tabularFigures()],
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    'of ${today.goalMinutes} min today',
+                    style: textTheme.bodySmall,
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _StreakCard extends StatelessWidget {
+  const _StreakCard({required this.today});
 
   final TodayData today;
 
@@ -270,8 +334,6 @@ class _ProgressCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final TextTheme textTheme = Theme.of(context).textTheme;
     final StreakState streak = today.streak;
-    final int minutesToday = today.secondsToday ~/ 60;
-    final int goalSeconds = today.goalMinutes * 60;
 
     final String? status;
     if (streak.repairAvailable) {
@@ -285,111 +347,139 @@ class _ProgressCard extends StatelessWidget {
     }
 
     return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: LuminaDecorations.card,
+      padding: const EdgeInsets.fromLTRB(20, 18, 12, 20),
+      decoration: LuminaDecorations.tinted(LuminaColors.streak),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              SizedBox(
-                width: 84,
-                height: 84,
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    CircularProgressIndicator(
-                      value: (today.secondsToday / goalSeconds).clamp(0, 1),
-                      strokeWidth: 7,
-                      strokeCap: StrokeCap.round,
-                      backgroundColor: LuminaColors.track,
-                      color: LuminaColors.accent,
-                    ),
-                    Center(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            '$minutesToday',
-                            style: textTheme.headlineMedium,
-                          ),
-                          Text('min', style: textTheme.bodySmall),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
+              const Icon(
+                Icons.local_fire_department_rounded,
+                color: LuminaColors.streak,
+                size: 28,
               ),
-              const SizedBox(width: 20),
+              const SizedBox(width: 8),
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Icon(
-                          Icons.local_fire_department_rounded,
-                          color: streak.readToday
-                              ? LuminaColors.streak
-                              : LuminaColors.textTertiary,
-                          size: 24,
+                child: Text.rich(
+                  TextSpan(
+                    children: [
+                      TextSpan(
+                        text: '${streak.current}',
+                        style: textTheme.headlineLarge?.copyWith(
+                          color: LuminaColors.streak,
                         ),
-                        const SizedBox(width: 6),
-                        Text.rich(
-                          TextSpan(
-                            children: [
-                              TextSpan(
-                                text: '${streak.current}',
-                                style: textTheme.headlineMedium?.copyWith(
-                                  color: LuminaColors.streak,
-                                ),
-                              ),
-                              TextSpan(
-                                text: ' day streak',
-                                style: textTheme.bodyMedium?.copyWith(
-                                  color: LuminaColors.textSecondary,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      '$minutesToday of ${today.goalMinutes} min today',
-                      style: textTheme.bodySmall,
-                    ),
-                    Text(
-                      streak.freezes == 0
-                          ? 'Every 7 days earns a freeze'
-                          : '${streak.freezes} freeze${streak.freezes == 1 ? '' : 's'} banked',
-                      style: textTheme.bodySmall,
-                    ),
-                  ],
+                      ),
+                      TextSpan(
+                        text: ' day streak',
+                        style: textTheme.titleMedium,
+                      ),
+                    ],
+                  ),
                 ),
               ),
+              const WhyChip(researchKey: 'streak'),
             ],
           ),
-          if (status != null) ...[
-            const SizedBox(height: 16),
+          const SizedBox(height: 16),
+          Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                for (final WeekDay day in today.week) _DayDot(day: day),
+              ],
+            ),
+          ),
+          const SizedBox(height: 14),
+          Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: Text(
+              status ??
+                  (streak.freezes == 0
+                      ? 'Seven days in a row earns a freeze for a missed day.'
+                      : 'Keep going. A missed day will not break it.'),
+              style: status == null
+                  ? textTheme.bodySmall
+                  : textTheme.bodyMedium,
+            ),
+          ),
+          if (streak.freezes > 0) ...[
+            const SizedBox(height: 10),
             Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(
-                color: LuminaColors.streak.withAlpha(28),
-                borderRadius: BorderRadius.circular(12),
+                color: LuminaColors.background.withAlpha(110),
+                borderRadius: BorderRadius.circular(999),
               ),
-              child: Text(status, style: textTheme.bodyMedium),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(
+                    Icons.ac_unit_rounded,
+                    size: 14,
+                    color: LuminaColors.textSecondary,
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    '${streak.freezes} freeze${streak.freezes == 1 ? '' : 's'} banked',
+                    style: textTheme.bodySmall,
+                  ),
+                ],
+              ),
             ),
           ],
-          const SizedBox(height: 4),
-          const Align(
-            alignment: Alignment.centerRight,
-            child: WhyChip(researchKey: 'streak'),
-          ),
         ],
       ),
+    );
+  }
+}
+
+// One day in the week strip: filled when read, ringed when it is today.
+class _DayDot extends StatelessWidget {
+  const _DayDot({required this.day});
+
+  final WeekDay day;
+
+  @override
+  Widget build(BuildContext context) {
+    final TextTheme textTheme = Theme.of(context).textTheme;
+    final bool read = day.state == DayState.read;
+    final Widget? mark = switch (day.state) {
+      DayState.read => const Icon(
+        Icons.check_rounded,
+        size: 18,
+        color: LuminaColors.background,
+      ),
+      DayState.saved => const Icon(
+        Icons.ac_unit_rounded,
+        size: 16,
+        color: LuminaColors.textSecondary,
+      ),
+      _ => null,
+    };
+    return Column(
+      children: [
+        Text(
+          DateFormat('E').format(day.date).substring(0, 1),
+          style: textTheme.labelMedium,
+        ),
+        const SizedBox(height: 6),
+        Container(
+          width: 34,
+          height: 34,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: read
+                ? LuminaColors.streak
+                : LuminaColors.background.withAlpha(110),
+            border: day.state == DayState.open
+                ? Border.all(color: LuminaColors.streak, width: 2)
+                : null,
+          ),
+          child: mark,
+        ),
+      ],
     );
   }
 }
@@ -404,7 +494,7 @@ class _BookCard extends StatelessWidget {
     final TextTheme textTheme = Theme.of(context).textTheme;
     final Books book = today.book!;
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(20),
       decoration: LuminaDecorations.card,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -412,8 +502,8 @@ class _BookCard extends StatelessWidget {
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              BookCover(coverUrl: book.coverUrl),
-              const SizedBox(width: 14),
+              BookCover(coverUrl: book.coverUrl, title: book.title, width: 72),
+              const SizedBox(width: 18),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -422,12 +512,13 @@ class _BookCard extends StatelessWidget {
                       book.title,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
-                      style: textTheme.titleLarge,
+                      style: textTheme.headlineMedium,
                     ),
+                    const SizedBox(height: 2),
                     Text(book.author, style: textTheme.bodySmall),
                     const SizedBox(height: 12),
                     LuminaWidgets.progressBar(today.percentage / 100),
-                    const SizedBox(height: 6),
+                    const SizedBox(height: 8),
                     Text(_progressLabel(), style: textTheme.bodySmall),
                   ],
                 ),
@@ -436,22 +527,44 @@ class _BookCard extends StatelessWidget {
           ),
           if (today.hook != null) ...[
             const SizedBox(height: 16),
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    'YOU WANTED TO KNOW',
-                    style: textTheme.labelMedium,
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.fromLTRB(16, 8, 6, 16),
+              decoration: BoxDecoration(
+                color: LuminaColors.tint(LuminaColors.recall),
+                borderRadius: BorderRadius.circular(18),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          'YOU WANTED TO KNOW',
+                          style: textTheme.labelMedium?.copyWith(
+                            color: LuminaColors.recall,
+                          ),
+                        ),
+                      ),
+                      const WhyChip(researchKey: 'hook'),
+                    ],
                   ),
-                ),
-                const WhyChip(researchKey: 'hook'),
-              ],
-            ),
-            Text(
-              today.hook!,
-              maxLines: 3,
-              overflow: TextOverflow.ellipsis,
-              style: textTheme.bodyLarge?.copyWith(fontStyle: FontStyle.italic),
+                  Padding(
+                    padding: const EdgeInsets.only(right: 10),
+                    child: Text(
+                      today.hook!,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: LuminaTheme.display(
+                        size: 18,
+                        height: 1.3,
+                        weight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ],
           const SizedBox(height: 16),
@@ -473,7 +586,7 @@ class _BookCard extends StatelessWidget {
     final String time = today.secondsLeft == null
         ? ''
         : ' · about ${HabitServices.formatDuration(today.secondsLeft!)}';
-    return '${today.percentage}% · ${today.pagesLeft} pages left$time';
+    return '${today.pagesLeft} pages left$time';
   }
 }
 
@@ -485,27 +598,28 @@ class _PlanLine extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return InkWell(
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: BorderRadius.circular(LuminaTheme.radiusCard),
       onTap: () => GoRouter.of(context).push('/plan'),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+        decoration: LuminaDecorations.card,
         child: Row(
           children: [
             const Icon(
               Symbols.schedule,
-              size: 18,
-              color: LuminaColors.textTertiary,
+              size: 20,
+              color: LuminaColors.textSecondary,
             ),
-            const SizedBox(width: 8),
+            const SizedBox(width: 12),
             Expanded(
               child: Text(
                 plan ?? 'Set when and where you read',
-                style: Theme.of(context).textTheme.bodySmall,
+                style: Theme.of(context).textTheme.bodyMedium,
               ),
             ),
             const Icon(
               Icons.chevron_right,
-              size: 18,
+              size: 20,
               color: LuminaColors.textTertiary,
             ),
           ],

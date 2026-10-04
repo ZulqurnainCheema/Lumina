@@ -25,9 +25,21 @@ class StreakState {
   final bool comeback;
 }
 
+enum DayState { read, saved, missed, open }
+
+class WeekDay {
+  const WeekDay({required this.date, required this.state});
+
+  final DateTime date;
+
+  // saved means a freeze or a repair covered the day.
+  final DayState state;
+}
+
 class TodayData {
   const TodayData({
     required this.streak,
+    required this.week,
     required this.secondsToday,
     required this.goalMinutes,
     required this.book,
@@ -39,6 +51,7 @@ class TodayData {
   });
 
   final StreakState streak;
+  final List<WeekDay> week;
   final int secondsToday;
   final int goalMinutes;
   final Books? book;
@@ -223,6 +236,7 @@ class HabitServices {
 
     return TodayData(
       streak: streak,
+      week: await getWeek(now: clock),
       secondsToday: secondsToday,
       goalMinutes: goalMinutes,
       book: book,
@@ -232,6 +246,36 @@ class HabitServices {
       secondsLeft: secondsLeft,
       plan: await getPlanLine(),
     );
+  }
+
+  // The last seven days, oldest first, ending today.
+  Future<List<WeekDay>> getWeek({DateTime? now}) async {
+    final DateTime clock = now ?? DateTime.now();
+    final Set<String> readDates = await _databaseServices.getReadDates();
+    final Map<String, String> events = await _databaseServices
+        .getStreakEvents();
+    return <WeekDay>[
+      for (int offset = 6; offset >= 0; offset--)
+        () {
+          final DateTime date = DateTime(
+            clock.year,
+            clock.month,
+            clock.day - offset,
+          );
+          final String key = dateKey(date);
+          final DayState state;
+          if (readDates.contains(key)) {
+            state = DayState.read;
+          } else if (offset == 0) {
+            state = DayState.open;
+          } else if (events.containsKey(key)) {
+            state = DayState.saved;
+          } else {
+            state = DayState.missed;
+          }
+          return WeekDay(date: date, state: state);
+        }(),
+    ];
   }
 
   Future<String?> getPlanLine() async {

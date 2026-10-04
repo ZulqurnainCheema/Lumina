@@ -105,6 +105,7 @@ class _StatisticsScreenState extends State<StatisticsScreen>
     );
     return Scaffold(
       body: SafeArea(
+        bottom: false,
         child: FutureBuilder<_StatisticsViewData>(
           future: _statisticsFuture,
           builder: (context, snapshot) {
@@ -144,62 +145,44 @@ class _StatisticsScreenState extends State<StatisticsScreen>
             }
 
             return ListView(
-              padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 120),
               children: [
                 Text('Stats', style: textTheme.displayLarge),
                 const SizedBox(height: 24),
-                const SectionHeader(
-                  label: 'This week',
-                  researchKey: 'tracking',
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    Expanded(
-                      child: StatTile(
-                        label: 'Days read',
-                        value: '${stats.week['days']}',
-                        unit: 'of 7',
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: StatTile(
-                        label: 'Time',
-                        value: HabitServices.formatDuration(
-                          stats.week['seconds']!,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: StatTile(
-                        label: 'Pages',
-                        value: '${stats.week['pages']}',
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 10),
+                // The hero tile: days read this week, with the daily bars.
                 Container(
-                  height: 220,
-                  padding: const EdgeInsets.fromLTRB(12, 16, 16, 8),
+                  padding: const EdgeInsets.fromLTRB(20, 14, 12, 12),
                   decoration: LuminaDecorations.card,
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Padding(
-                        padding: const EdgeInsets.only(left: 4),
-                        child: Text(
-                          'Minutes per day, last $_chartDays days',
-                          style: textTheme.bodySmall,
+                      const SectionHeader(
+                        label: 'This week',
+                        researchKey: 'tracking',
+                      ),
+                      Text.rich(
+                        TextSpan(
+                          children: [
+                            TextSpan(
+                              text: '${stats.week['days']}',
+                              style: textTheme.displayMedium?.copyWith(
+                                color: LuminaColors.accent,
+                              ),
+                            ),
+                            TextSpan(
+                              text: ' of 7 days',
+                              style: textTheme.titleMedium,
+                            ),
+                          ],
                         ),
                       ),
-                      Expanded(
+                      const SizedBox(height: 8),
+                      SizedBox(
+                        height: 130,
                         child: SfCartesianChart(
                           backgroundColor: Colors.transparent,
                           plotAreaBorderWidth: 0,
-                          margin: const EdgeInsets.only(top: 12),
+                          margin: EdgeInsets.zero,
                           primaryXAxis: DateTimeCategoryAxis(
                             dateFormat: DateFormat.d(),
                             majorGridLines: const MajorGridLines(width: 0),
@@ -207,15 +190,9 @@ class _StatisticsScreenState extends State<StatisticsScreen>
                             axisLine: const AxisLine(width: 0),
                             labelStyle: axisStyle,
                           ),
-                          primaryYAxis: NumericAxis(
+                          primaryYAxis: const NumericAxis(
                             minimum: 0,
-                            axisLine: const AxisLine(width: 0),
-                            majorTickLines: const MajorTickLines(size: 0),
-                            majorGridLines: const MajorGridLines(
-                              width: 0.8,
-                              color: LuminaColors.borderSubtle,
-                            ),
-                            labelStyle: axisStyle,
+                            isVisible: false,
                           ),
                           series: <CartesianSeries<_MinutesPoint, DateTime>>[
                             ColumnSeries<_MinutesPoint, DateTime>(
@@ -225,16 +202,39 @@ class _StatisticsScreenState extends State<StatisticsScreen>
                               yValueMapper: (_MinutesPoint point, _) =>
                                   point.minutes,
                               color: LuminaColors.accent,
-                              borderRadius: const BorderRadius.vertical(
-                                top: Radius.circular(4),
-                              ),
+                              width: 0.6,
+                              borderRadius: BorderRadius.circular(6),
                               animationDuration: 0,
                             ),
                           ],
                         ),
                       ),
+                      Text(
+                        'Minutes per day, last $_chartDays days',
+                        style: textTheme.bodySmall,
+                      ),
                     ],
                   ),
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: StatTile(
+                        label: 'Read this week',
+                        value: HabitServices.formatDuration(
+                          stats.week['seconds']!,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: StatTile(
+                        label: 'Pages this week',
+                        value: '${stats.week['pages']}',
+                      ),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 28),
                 const SectionHeader(label: 'All time', researchKey: 'streak'),
@@ -246,10 +246,10 @@ class _StatisticsScreenState extends State<StatisticsScreen>
                         label: 'Current streak',
                         value: '${stats.streak}',
                         unit: 'days',
-                        valueColor: LuminaColors.streak,
+                        color: LuminaColors.streak,
                       ),
                     ),
-                    const SizedBox(width: 10),
+                    const SizedBox(width: 12),
                     Expanded(
                       child: StatTile(
                         label: 'Longest streak',
@@ -259,32 +259,28 @@ class _StatisticsScreenState extends State<StatisticsScreen>
                     ),
                   ],
                 ),
-                const SizedBox(height: 10),
+                const SizedBox(height: 12),
                 Row(
                   children: [
                     Expanded(
                       child: StatTile(
-                        label: 'Books',
+                        label: 'Books finished',
                         value: '${stats.finishedBooks}',
                       ),
                     ),
-                    const SizedBox(width: 10),
+                    const SizedBox(width: 12),
                     Expanded(
                       child: StatTile(
-                        label: 'Pages',
+                        label: 'Pages read',
                         value: '${stats.lifetimePages}',
                       ),
                     ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: StatTile(
-                        label: 'Time',
-                        value: HabitServices.formatDuration(
-                          stats.lifetimeSeconds,
-                        ),
-                      ),
-                    ),
                   ],
+                ),
+                const SizedBox(height: 12),
+                StatTile(
+                  label: 'Total reading time',
+                  value: HabitServices.formatDuration(stats.lifetimeSeconds),
                 ),
                 const SizedBox(height: 28),
                 const SectionHeader(
@@ -294,7 +290,7 @@ class _StatisticsScreenState extends State<StatisticsScreen>
                 const SizedBox(height: 8),
                 if (stats.habitData.isEmpty)
                   Container(
-                    padding: const EdgeInsets.all(16),
+                    padding: const EdgeInsets.all(20),
                     decoration: LuminaDecorations.card,
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -362,12 +358,12 @@ class _StatisticsScreenState extends State<StatisticsScreen>
                                     point.date,
                                 yValueMapper: (_HabitPoint point, _) =>
                                     point.score,
-                                color: LuminaColors.accent,
                                 width: 3,
                                 animationDuration: 0,
+                                color: LuminaColors.recall,
                                 markerSettings: const MarkerSettings(
                                   isVisible: true,
-                                  color: LuminaColors.accent,
+                                  color: LuminaColors.recall,
                                   borderColor: LuminaColors.surface,
                                 ),
                               ),

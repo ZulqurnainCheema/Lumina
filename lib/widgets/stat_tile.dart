@@ -7,31 +7,28 @@ class StatTile extends StatelessWidget {
     required this.label,
     required this.value,
     this.unit,
-    this.valueColor,
+    this.color,
   });
 
   final String label;
   final String value;
   final String? unit;
-  final Color? valueColor;
+
+  // Tints the tile and colours the number. Leave empty for a plain tile.
+  final Color? color;
 
   @override
   Widget build(BuildContext context) {
     final TextTheme textTheme = Theme.of(context).textTheme;
     return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: LuminaDecorations.card,
+      padding: const EdgeInsets.fromLTRB(18, 16, 18, 18),
+      decoration: color == null
+          ? LuminaDecorations.card
+          : LuminaDecorations.tinted(color!),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: textTheme.bodySmall,
-          ),
-          const SizedBox(height: 6),
           // Long values shrink to fit instead of being cut off.
           FittedBox(
             fit: BoxFit.scaleDown,
@@ -41,9 +38,7 @@ class StatTile extends StatelessWidget {
                 children: [
                   TextSpan(
                     text: value,
-                    style: textTheme.headlineMedium?.copyWith(
-                      color: valueColor,
-                    ),
+                    style: textTheme.headlineLarge?.copyWith(color: color),
                   ),
                   if (unit != null)
                     TextSpan(text: ' $unit', style: textTheme.bodySmall),
@@ -51,6 +46,13 @@ class StatTile extends StatelessWidget {
               ),
               maxLines: 1,
             ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: textTheme.bodySmall,
           ),
         ],
       ),

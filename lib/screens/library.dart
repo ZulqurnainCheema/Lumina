@@ -59,15 +59,10 @@ class _LibraryState extends State<Library> with RouteRefresh<Library> {
         }
         final List<Books> books = snapshot.data!.where(filter).toList();
         if (books.isEmpty) {
-          return EmptyState(
-            icon: emptyIcon,
-            message: emptyMessage,
-            actionLabel: 'Add a book',
-            onAction: _addBook,
-          );
+          return EmptyState(icon: emptyIcon, message: emptyMessage);
         }
         return ListView.builder(
-          padding: const EdgeInsets.fromLTRB(20, 16, 20, 96),
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 120),
           itemCount: books.length,
           itemBuilder: (context, index) {
             return Padding(
@@ -90,14 +85,30 @@ class _LibraryState extends State<Library> with RouteRefresh<Library> {
       length: 3,
       child: Scaffold(
         body: SafeArea(
+          bottom: false,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Padding(
                 padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
-                child: Text(
-                  'Library',
-                  style: Theme.of(context).textTheme.displayLarge,
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'Library',
+                        style: Theme.of(context).textTheme.displayLarge,
+                      ),
+                    ),
+                    FilledButton.tonalIcon(
+                      onPressed: _addBook,
+                      style: FilledButton.styleFrom(
+                        backgroundColor: LuminaColors.surfaceRaised,
+                        foregroundColor: LuminaColors.textPrimary,
+                      ),
+                      icon: const Icon(Icons.add, size: 20),
+                      label: const Text('Add book'),
+                    ),
+                  ],
                 ),
               ),
               const TabBar(
@@ -140,11 +151,6 @@ class _LibraryState extends State<Library> with RouteRefresh<Library> {
             ],
           ),
         ),
-        floatingActionButton: FloatingActionButton.extended(
-          onPressed: _addBook,
-          icon: const Icon(Icons.add),
-          label: const Text('Add book'),
-        ),
       ),
     );
   }
@@ -170,7 +176,7 @@ Widget buildBookCard(
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          BookCover(coverUrl: book.coverUrl),
+          BookCover(coverUrl: book.coverUrl, title: book.title),
           const SizedBox(width: 14),
           Expanded(
             child: FutureBuilder<int>(
@@ -187,7 +193,7 @@ Widget buildBookCard(
                       book.title,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
-                      style: textTheme.titleMedium,
+                      style: textTheme.titleLarge,
                     ),
                     const SizedBox(height: 2),
                     Text(book.author, style: textTheme.bodySmall),

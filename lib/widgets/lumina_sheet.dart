@@ -20,7 +20,7 @@ Future<bool?> showLuminaSheet(
       final TextTheme textTheme = Theme.of(context).textTheme;
       return SafeArea(
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(24, 0, 24, 16),
+          padding: const EdgeInsets.fromLTRB(24, 4, 24, 20),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -29,7 +29,7 @@ Future<bool?> showLuminaSheet(
                 Center(child: leading),
                 const SizedBox(height: 16),
               ],
-              Text(title, style: textTheme.headlineMedium),
+              Text(title, style: textTheme.headlineLarge),
               const SizedBox(height: 10),
               Text(
                 body,

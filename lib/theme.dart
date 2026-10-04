@@ -6,29 +6,38 @@ import 'package:google_fonts/google_fonts.dart';
 /// ===============================
 
 class LuminaColors {
-  static const background = Color(0xFF0B0D0C);
-  static const surface = Color(0xFF151917);
-  static const surfaceRaised = Color(0xFF1D2320);
+  // Warm near-black, with each surface a step lighter. Depth comes from the
+  // surface step, not from borders.
+  static const background = Color(0xFF11100E);
+  static const surface = Color(0xFF1C1A17);
+  static const surfaceRaised = Color(0xFF282521);
+  static const sheet = Color(0xFF2E2B27);
 
-  // Accent is for the one main action on a screen and for live progress.
-  static const accent = Color(0xFF2BD46B);
-  // Streak colour is for the flame and streak numbers only.
-  static const streak = Color(0xFFFFB347);
+  // Every colour has one meaning.
+  static const accent = Color(0xFF8FD9A8); // the main action, progress
+  static const onAccent = Color(0xFF0E2A18);
+  static const streak = Color(0xFFF2B45A); // streak and fire
+  static const recall = Color(0xFFB7A6F5); // your own notes and questions
+  static const missed = Color(0xFFF28B82);
 
-  static const textPrimary = Color(0xFFF2F5F3);
-  static const textSecondary = Color(0xFFA3ADA7);
-  static const textTertiary = Color(0xFF6B756F);
+  static const textPrimary = Color(0xFFF3EFE8);
+  static const textSecondary = Color(0xFFABA59B);
+  static const textTertiary = Color(0xFF7D776E);
 
   static const neutral = textSecondary;
-  static const track = Color(0xFF232A26);
+  static const track = Color(0xFF2B2824);
   static const field = surfaceRaised;
-  static const fieldFocus = Color(0xFF242C28);
+  static const fieldFocus = sheet;
 
   static const white = textPrimary;
 
   static const borderSubtle = Color(0x14FFFFFF);
   static const borderSoft = Color(0x1FFFFFFF);
   static const shadow = Color(0x66000000);
+
+  // A colour at low strength over a card, for tinted tiles.
+  static Color tint(Color color) =>
+      Color.alphaBlend(color.withAlpha(34), surface);
 }
 
 /// ===============================
@@ -36,92 +45,98 @@ class LuminaColors {
 /// ===============================
 
 class LuminaTheme {
-  static const radiusCard = 16.0;
-  static const radiusInput = 14.0;
-  static const radiusThumbnail = 8.0;
+  static const radiusCard = 28.0;
+  static const radiusInput = 18.0;
+  static const radiusThumbnail = 10.0;
 
-  static const buttonHeight = 54.0;
+  static const buttonHeight = 56.0;
+
+  // Editorial serif for titles and big numbers, grotesk for everything else.
+  static TextStyle display({
+    required double size,
+    double height = 1.1,
+    FontWeight weight = FontWeight.w600,
+    Color color = LuminaColors.textPrimary,
+  }) {
+    return GoogleFonts.fraunces(
+      fontSize: size,
+      height: height,
+      fontWeight: weight,
+      letterSpacing: size * -0.02,
+      color: color,
+    );
+  }
 
   static ThemeData dark() {
     final base = ThemeData.dark(useMaterial3: true);
 
-    // One job per style: display is the screen title, headline the key number
-    // on a card, title a section or card heading, body the reading text, and
-    // label the small overline above a section.
-    final textTheme = GoogleFonts.interTextTheme(base.textTheme).copyWith(
-      displayLarge: GoogleFonts.inter(
+    final textTheme = GoogleFonts.manropeTextTheme(base.textTheme).copyWith(
+      // The one hero number on a screen.
+      displayMedium: display(size: 72, height: 1),
+      // The screen title.
+      displayLarge: display(size: 36),
+      // Stat numerals and sheet titles.
+      headlineLarge: display(size: 30, height: 1.15),
+      headlineMedium: display(size: 24, height: 1.2),
+      titleLarge: GoogleFonts.manrope(
         fontWeight: FontWeight.w700,
-        fontSize: 30,
-        height: 1.15,
-        letterSpacing: -0.5,
-        color: LuminaColors.textPrimary,
-      ),
-      headlineLarge: GoogleFonts.inter(
-        fontWeight: FontWeight.w700,
-        fontSize: 26,
-        height: 1.2,
-        letterSpacing: -0.3,
-        color: LuminaColors.textPrimary,
-      ),
-      headlineMedium: GoogleFonts.inter(
-        fontWeight: FontWeight.w700,
-        fontSize: 22,
-        height: 1.2,
-        color: LuminaColors.textPrimary,
-      ),
-      titleLarge: GoogleFonts.inter(
-        fontWeight: FontWeight.w600,
-        fontSize: 18,
+        fontSize: 20,
         height: 1.3,
         color: LuminaColors.textPrimary,
       ),
-      titleMedium: GoogleFonts.inter(
-        fontWeight: FontWeight.w600,
+      titleMedium: GoogleFonts.manrope(
+        fontWeight: FontWeight.w700,
         fontSize: 16,
         height: 1.3,
         color: LuminaColors.textPrimary,
       ),
-      bodyLarge: GoogleFonts.inter(
-        fontWeight: FontWeight.w400,
+      bodyLarge: GoogleFonts.manrope(
+        fontWeight: FontWeight.w500,
         fontSize: 16,
-        height: 1.45,
+        height: 1.5,
         color: LuminaColors.textPrimary,
       ),
-      bodyMedium: GoogleFonts.inter(
-        fontWeight: FontWeight.w400,
+      bodyMedium: GoogleFonts.manrope(
+        fontWeight: FontWeight.w500,
         fontSize: 15,
-        height: 1.45,
+        height: 1.5,
         color: LuminaColors.textPrimary,
       ),
-      bodySmall: GoogleFonts.inter(
-        fontWeight: FontWeight.w400,
+      bodySmall: GoogleFonts.manrope(
+        fontWeight: FontWeight.w500,
         fontSize: 13,
         height: 1.4,
         color: LuminaColors.textSecondary,
       ),
-      labelLarge: GoogleFonts.inter(
-        fontWeight: FontWeight.w600,
+      labelLarge: GoogleFonts.manrope(
+        fontWeight: FontWeight.w700,
         fontSize: 15,
         color: LuminaColors.textPrimary,
       ),
-      labelMedium: GoogleFonts.inter(
-        fontWeight: FontWeight.w600,
+      // Small capitals above a section.
+      labelMedium: GoogleFonts.manrope(
+        fontWeight: FontWeight.w700,
         fontSize: 12,
-        letterSpacing: 1.1,
-        color: LuminaColors.textTertiary,
+        letterSpacing: 0.8,
+        color: LuminaColors.textSecondary,
       ),
     );
 
     final colorScheme = const ColorScheme.dark(
       brightness: Brightness.dark,
       primary: LuminaColors.accent,
-      onPrimary: LuminaColors.background,
+      onPrimary: LuminaColors.onAccent,
       secondary: LuminaColors.accent,
       surface: LuminaColors.surface,
       onSurface: LuminaColors.textPrimary,
       onSurfaceVariant: LuminaColors.textSecondary,
       outline: LuminaColors.borderSoft,
-      error: Color(0xFFFF8A80),
+      error: LuminaColors.missed,
+    );
+
+    final TextStyle buttonText = GoogleFonts.manrope(
+      fontWeight: FontWeight.w700,
+      fontSize: 16,
     );
 
     return base.copyWith(
@@ -150,11 +165,7 @@ class LuminaTheme {
         scrolledUnderElevation: 0,
         centerTitle: false,
         iconTheme: const IconThemeData(color: LuminaColors.textPrimary),
-        titleTextStyle: GoogleFonts.inter(
-          fontWeight: FontWeight.w600,
-          fontSize: 18,
-          color: LuminaColors.textPrimary,
-        ),
+        titleTextStyle: textTheme.titleLarge,
       ),
 
       /// ===============================
@@ -165,41 +176,33 @@ class LuminaTheme {
         elevation: 0,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(radiusCard),
-          side: BorderSide(color: LuminaColors.borderSubtle),
         ),
       ),
 
       /// ===============================
       /// BUTTONS
       /// ===============================
+      // Filled pill: the one main action on a screen.
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
           backgroundColor: LuminaColors.accent,
-          foregroundColor: LuminaColors.background,
+          foregroundColor: LuminaColors.onAccent,
           minimumSize: const Size.fromHeight(buttonHeight),
           elevation: 0,
-          textStyle: GoogleFonts.inter(
-            fontWeight: FontWeight.w700,
-            fontSize: 16,
-          ),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(radiusInput),
-          ),
+          textStyle: buttonText,
+          shape: const StadiumBorder(),
         ),
       ),
 
+      // Tonal pill: secondary actions.
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
+          backgroundColor: LuminaColors.surfaceRaised,
           foregroundColor: LuminaColors.textPrimary,
           minimumSize: const Size.fromHeight(buttonHeight),
-          side: const BorderSide(color: LuminaColors.borderSoft),
-          textStyle: GoogleFonts.inter(
-            fontWeight: FontWeight.w600,
-            fontSize: 15,
-          ),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(radiusInput),
-          ),
+          side: BorderSide.none,
+          textStyle: buttonText.copyWith(fontSize: 15),
+          shape: const StadiumBorder(),
         ),
       ),
 
@@ -207,10 +210,8 @@ class LuminaTheme {
         style: TextButton.styleFrom(
           foregroundColor: LuminaColors.textSecondary,
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-          textStyle: GoogleFonts.inter(
-            fontWeight: FontWeight.w600,
-            fontSize: 15,
-          ),
+          textStyle: buttonText.copyWith(fontSize: 15),
+          shape: const StadiumBorder(),
         ),
       ),
 
@@ -227,27 +228,27 @@ class LuminaTheme {
         filled: true,
         fillColor: LuminaColors.field,
         alignLabelWithHint: true,
-        hintStyle: GoogleFonts.inter(
+        hintStyle: GoogleFonts.manrope(
           color: LuminaColors.textTertiary,
           fontSize: 15,
-          fontWeight: FontWeight.w400,
+          fontWeight: FontWeight.w500,
         ),
-        labelStyle: GoogleFonts.inter(
+        labelStyle: GoogleFonts.manrope(
           color: LuminaColors.textSecondary,
           fontSize: 15,
-          fontWeight: FontWeight.w400,
+          fontWeight: FontWeight.w500,
         ),
-        floatingLabelStyle: GoogleFonts.inter(
+        floatingLabelStyle: GoogleFonts.manrope(
           color: LuminaColors.textSecondary,
           fontSize: 14,
-          fontWeight: FontWeight.w500,
+          fontWeight: FontWeight.w600,
         ),
-        errorStyle: GoogleFonts.inter(
-          color: const Color(0xFFFF8A80),
+        errorStyle: GoogleFonts.manrope(
+          color: LuminaColors.missed,
           fontSize: 12,
-          fontWeight: FontWeight.w500,
+          fontWeight: FontWeight.w600,
         ),
-        contentPadding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+        contentPadding: const EdgeInsets.fromLTRB(18, 14, 18, 14),
 
         // Filled fields: the label floats inside the box, not on its edge.
         border: UnderlineInputBorder(
@@ -267,12 +268,12 @@ class LuminaTheme {
 
         errorBorder: UnderlineInputBorder(
           borderRadius: BorderRadius.circular(radiusInput),
-          borderSide: const BorderSide(color: Color(0x66FF8A80), width: 2),
+          borderSide: const BorderSide(color: LuminaColors.missed, width: 2),
         ),
 
         focusedErrorBorder: UnderlineInputBorder(
           borderRadius: BorderRadius.circular(radiusInput),
-          borderSide: const BorderSide(color: Color(0xFFFF8A80), width: 2),
+          borderSide: const BorderSide(color: LuminaColors.missed, width: 2),
         ),
       ),
 
@@ -282,42 +283,16 @@ class LuminaTheme {
         selectionHandleColor: LuminaColors.accent,
       ),
 
-      /// ===============================
-      /// NAVIGATION BAR
-      /// ===============================
-      navigationBarTheme: NavigationBarThemeData(
-        backgroundColor: LuminaColors.surface,
-        surfaceTintColor: Colors.transparent,
-        indicatorColor: LuminaColors.accent.withAlpha(36),
-        height: 68,
-        iconTheme: WidgetStateProperty.resolveWith((states) {
-          return IconThemeData(
-            color: states.contains(WidgetState.selected)
-                ? LuminaColors.accent
-                : LuminaColors.textSecondary,
-          );
-        }),
-        labelTextStyle: WidgetStateProperty.resolveWith((states) {
-          return GoogleFonts.inter(
-            fontSize: 12,
-            fontWeight: FontWeight.w600,
-            color: states.contains(WidgetState.selected)
-                ? LuminaColors.textPrimary
-                : LuminaColors.textSecondary,
-          );
-        }),
-      ),
-
       tabBarTheme: TabBarThemeData(
         labelColor: LuminaColors.textPrimary,
         unselectedLabelColor: LuminaColors.textSecondary,
         indicatorColor: LuminaColors.accent,
-        dividerColor: LuminaColors.borderSubtle,
-        labelStyle: GoogleFonts.inter(
+        dividerColor: Colors.transparent,
+        labelStyle: GoogleFonts.manrope(
           fontSize: 15,
-          fontWeight: FontWeight.w600,
+          fontWeight: FontWeight.w700,
         ),
-        unselectedLabelStyle: GoogleFonts.inter(
+        unselectedLabelStyle: GoogleFonts.manrope(
           fontSize: 15,
           fontWeight: FontWeight.w500,
         ),
@@ -327,27 +302,28 @@ class LuminaTheme {
       /// SHEETS AND DIALOGS
       /// ===============================
       bottomSheetTheme: const BottomSheetThemeData(
-        backgroundColor: LuminaColors.surfaceRaised,
+        backgroundColor: LuminaColors.sheet,
         surfaceTintColor: Colors.transparent,
         showDragHandle: true,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
         ),
       ),
 
       dialogTheme: DialogThemeData(
-        backgroundColor: LuminaColors.surfaceRaised,
+        backgroundColor: LuminaColors.sheet,
         surfaceTintColor: Colors.transparent,
-        titleTextStyle: textTheme.titleLarge,
+        titleTextStyle: textTheme.headlineMedium,
         contentTextStyle: textTheme.bodyMedium?.copyWith(
           color: LuminaColors.textSecondary,
         ),
       ),
 
       snackBarTheme: SnackBarThemeData(
-        backgroundColor: LuminaColors.surfaceRaised,
+        backgroundColor: LuminaColors.sheet,
         contentTextStyle: textTheme.bodyMedium,
         behavior: SnackBarBehavior.floating,
+        shape: const StadiumBorder(),
       ),
 
       listTileTheme: ListTileThemeData(
@@ -382,8 +358,8 @@ class LuminaTheme {
           selectedBackgroundColor: LuminaColors.textPrimary,
           selectedForegroundColor: LuminaColors.background,
           side: BorderSide.none,
-          textStyle: GoogleFonts.inter(
-            fontWeight: FontWeight.w600,
+          textStyle: GoogleFonts.manrope(
+            fontWeight: FontWeight.w700,
             fontSize: 14,
           ),
         ),
@@ -396,19 +372,16 @@ class LuminaTheme {
         backgroundColor: LuminaColors.surfaceRaised,
         selectedColor: LuminaColors.textPrimary,
         disabledColor: LuminaColors.surface,
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(999),
-          side: BorderSide.none,
-        ),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        shape: const StadiumBorder(),
         side: BorderSide.none,
-        labelStyle: GoogleFonts.inter(
+        labelStyle: GoogleFonts.manrope(
           color: LuminaColors.textPrimary,
-          fontWeight: FontWeight.w600,
+          fontWeight: FontWeight.w700,
         ),
-        secondaryLabelStyle: GoogleFonts.inter(
+        secondaryLabelStyle: GoogleFonts.manrope(
           color: LuminaColors.background,
-          fontWeight: FontWeight.w600,
+          fontWeight: FontWeight.w700,
         ),
       ),
     );
@@ -423,7 +396,11 @@ class LuminaDecorations {
   static BoxDecoration card = BoxDecoration(
     color: LuminaColors.surface,
     borderRadius: BorderRadius.circular(LuminaTheme.radiusCard),
-    border: Border.all(color: LuminaColors.borderSubtle),
+  );
+
+  static BoxDecoration tinted(Color color) => BoxDecoration(
+    color: LuminaColors.tint(color),
+    borderRadius: BorderRadius.circular(LuminaTheme.radiusCard),
   );
 
   static BoxDecoration thumbnail = BoxDecoration(
@@ -457,7 +434,7 @@ class LuminaWidgets {
       borderRadius: BorderRadius.circular(999),
       child: LinearProgressIndicator(
         value: value.clamp(0, 1),
-        minHeight: 6,
+        minHeight: 8,
         backgroundColor: LuminaColors.track,
         valueColor: const AlwaysStoppedAnimation(LuminaColors.accent),
       ),

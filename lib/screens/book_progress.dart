@@ -6,6 +6,7 @@ import 'package:lumina/theme.dart';
 import 'package:lumina/models/entries.dart';
 import 'package:lumina/services/database_services.dart';
 import 'package:lumina/services/habit_services.dart';
+import 'package:lumina/widgets/book_cover.dart';
 import 'package:lumina/widgets/empty_state.dart';
 import 'package:lumina/widgets/section_header.dart';
 import 'package:lumina/widgets/stat_tile.dart';
@@ -103,25 +104,39 @@ class _BookProgressState extends State<BookProgress> {
               FutureBuilder<Books?>(
                 future: _bookFuture,
                 builder: (context, bookSnapshot) {
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                  final Books? book = bookSnapshot.data;
+                  return Row(
+                    crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
-                      Text(
-                        bookSnapshot.data?.title ?? '',
-                        style: textTheme.displayLarge,
+                      BookCover(
+                        coverUrl: book?.coverUrl ?? '',
+                        title: book?.title ?? '',
+                        width: 96,
                       ),
-                      const SizedBox(height: 4),
-                      Text(
-                        bookSnapshot.data?.author ?? '',
-                        style: textTheme.bodyMedium?.copyWith(
-                          color: LuminaColors.textSecondary,
+                      const SizedBox(width: 20),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              book?.title ?? '',
+                              style: textTheme.displayLarge,
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              book?.author ?? '',
+                              style: textTheme.bodyMedium?.copyWith(
+                                color: LuminaColors.textSecondary,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ],
                   );
                 },
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 24),
               LuminaWidgets.progressBar(progress / 100),
               const SizedBox(height: 16),
               Row(
@@ -212,7 +227,7 @@ Widget buildBookProgressCard(
 
   return Container(
     width: double.infinity,
-    padding: const EdgeInsets.fromLTRB(16, 8, 4, 16),
+    padding: const EdgeInsets.fromLTRB(20, 10, 6, 18),
     decoration: LuminaDecorations.card,
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
