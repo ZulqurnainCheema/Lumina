@@ -1,11 +1,16 @@
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:home_widget/home_widget.dart';
 import 'package:intl/intl.dart';
 import 'package:lumina/services/habit_services.dart';
+import 'package:lumina/theme.dart';
+import 'package:lumina/widgets/streak_card.dart';
 
 class HomeWidgetService {
   static const String _androidProvider = 'LuminaWidgetProvider';
   static const String _androidStreakProvider = 'LuminaStreakWidgetProvider';
+  static const Size _streakCardSize = Size(372, 236);
 
   static bool get supported =>
       !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
@@ -27,7 +32,9 @@ class HomeWidgetService {
       );
       await HomeWidget.saveWidgetData<String>(
         'minutes',
-        '${today.secondsToday ~/ 60} of ${today.goalMinutes} min',
+        today.streak.readToday && today.secondsToday == 0
+            ? 'Read today'
+            : '${today.secondsToday ~/ 60} of ${today.goalMinutes} min',
       );
       await HomeWidget.saveWidgetData<String>(
         'book',
@@ -46,10 +53,34 @@ class HomeWidgetService {
         'streakStatus',
         streakStatus(today.streak),
       );
+      await _renderStreakCard(today);
       await HomeWidget.updateWidget(androidName: _androidProvider);
       await HomeWidget.updateWidget(androidName: _androidStreakProvider);
     } catch (error) {
       debugPrint('HomeWidgetService: update failed: $error');
+    }
+  }
+
+  // Home-screen widgets cannot run Flutter, so the real streak card is drawn
+  // to an image here and the widget shows that image.
+  static Future<void> _renderStreakCard(TodayData today) async {
+    try {
+      await GoogleFonts.pendingFonts();
+      await HomeWidget.renderFlutterWidget(
+        Theme(
+          data: LuminaTheme.dark(),
+          child: SizedBox(
+            width: _streakCardSize.width,
+            child: StreakCard(today: today, showWhy: false),
+          ),
+        ),
+        key: 'streakCard',
+        logicalSize: _streakCardSize,
+        pixelRatio: 3,
+      );
+    } catch (error) {
+      // The widget falls back to its plain layout when there is no image.
+      debugPrint('HomeWidgetService: streak card render failed: $error');
     }
   }
 

@@ -5,10 +5,10 @@ Every UI test below drives the real app on Linux at phone size (412 × 892) agai
 ## Running the tests
 
 ```bash
-# Logic: streaks, freezes, repair, migration, reminders, backup, research entries (24 tests, about 1 second)
+# Logic: streaks, freezes, repair, migration, reminders, backup, research entries (33 tests, about 1 second)
 flutter test
 
-# UI flows, one or more screenshots per test (13 tests, 2 to 4 minutes, needs a display)
+# UI flows, one or more screenshots per test (15 tests, 2 to 4 minutes, needs a display)
 flutter test integration_test/habit_flow_test.dart -d linux
 ```
 
@@ -172,6 +172,24 @@ Built on: Roediger & Karpicke (2006): 61% retained after a week when recalling, 
 |---|---|
 | ![Recall prompt](screenshots/20-recall-prompt.png) | ![Recall answer](screenshots/21-recall-answer.png) |
 
+### 14. The streak card draws on its own for the home-screen widget
+
+`the streak card draws on its own for the home-screen widget`
+
+The "Lumina streak" home-screen widget shows the same card as Today. Android widgets cannot run Flutter, so the app draws the card to an image and the widget displays it. This test draws the card the same way, with no app around it, and checks the streak, the week dots (five ticks, one freeze, today open) and that the "Why?" chip is left out.
+
+![Streak widget](screenshots/22-streak-widget.png)
+
+### 15. Logging without the timer can still fill the ring
+
+`logging without the timer can still fill the ring`
+
+You log where your bookmark is, not how many pages you read. The form shows where you were ("You were on page 13 of 320"). The test logs page 24 with no minutes: the streak counts and the ring says "Read today · no time logged". Then it logs page 42 with 12 minutes and checks that 18 pages were added (not 42), the ring shows 12, and Today says 278 pages left.
+
+| Logging the page you are on | Today afterwards |
+|---|---|
+| ![Log current page](screenshots/23-log-current-page.png) | ![Manual minutes](screenshots/24-manual-minutes.png) |
+
 ---
 
 ## Logic tests
@@ -193,6 +211,13 @@ Built on: Roediger & Karpicke (2006): 61% retained after a week when recalling, 
 | entries | a timed session that rounds to 0% is still saved | Two pages of a 900-page book still count for the streak |
 | entries | an entry with no progress and no session is ignored | Empty entries are not stored |
 | entries | today shows the hook, pages left and time left | Pace is computed from your own sessions |
+| coherence | a book is finished at 100%, not before | At 90% it is still on Today; at 100% it moves to Finished; deleting the last entry moves it back |
+| coherence | the page typed is where you are, not how many you read | Was on page 24, now on 42: 18 pages are added |
+| coherence | the percent typed is where you are, and records the pages | Was at 10%, now at 25% of 320 pages: 15% and 48 pages are added |
+| coherence | short sessions add up instead of rounding to nothing | Three pages at a time through a 900-page book reaches page 18 and 2% |
+| coherence | reaching the last page finishes the book | Page 300 of 300 brings the book to 100% |
+| coherence | pages left counts from the page you are on | On page 42 of 320 there are 278 left |
+| coherence | the ring, the streak and the stats read the same entries | One session shows the same minutes, pages and day on Today, the week strip and Stats |
 | migration | a version 1 database upgrades with its rows intact | Existing books and entries survive; deleting a book now removes its entries |
 | reminders | fire a little before the usual reading time | 15 minutes before your median entry time; 20:00 with no history |
 | reminders | count how many in a row were ignored | Used to drop to every other day after five ignored |

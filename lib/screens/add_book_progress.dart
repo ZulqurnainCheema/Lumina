@@ -26,6 +26,7 @@ class _AddBookProgressState extends State<AddBookProgress> {
   final TextEditingController _summaryController = TextEditingController();
   final TextEditingController _pagesController = TextEditingController();
   final TextEditingController _hookController = TextEditingController();
+  final TextEditingController _minutesController = TextEditingController();
   final _DatabaseServices = DatabaseServices.instance;
   bool _isbypages = false;
   int? _absorption;
@@ -35,18 +36,54 @@ class _AddBookProgressState extends State<AddBookProgress> {
   TextStyle? get _fieldTextStyle => Theme.of(context).textTheme.bodyMedium
       ?.copyWith(color: LuminaColors.white, fontWeight: FontWeight.w500);
 
-  String? _validateNumber(String? value, {required int max}) {
+  // Where the reader was before this entry.
+  int _percentSoFar = 0;
+  int _currentPage = 0;
+  int _totalPages = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadPosition();
+  }
+
+  Future<void> _loadPosition() async {
+    final int percentSoFar = await _DatabaseServices.getPercentageRead(
+      widget.id,
+    );
+    final int currentPage = await _DatabaseServices.getCurrentPage(widget.id);
+    final int totalPages = await _DatabaseServices.getTotalPages(widget.id);
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _percentSoFar = percentSoFar;
+      _currentPage = currentPage;
+      _totalPages = totalPages;
+    });
+  }
+
+  // The number typed is where you are now, so it has to be past where you
+  // were and not past the end of the book.
+  String? _validatePosition(String? value) {
     final String text = (value ?? '').trim();
-    // After a timed session the amount can be left blank.
+    // After a timed session the position can be left blank.
     if (text.isEmpty && _hasSession) {
       return null;
     }
     final int? number = int.tryParse(text);
-    if (number == null || number < (_hasSession ? 0 : 1)) {
+    if (number == null) {
       return 'Please enter a number';
     }
-    if (number > max) {
-      return 'That is more than $max';
+    final int before = _isbypages ? _currentPage : _percentSoFar;
+    final int end = _isbypages ? _totalPages : 100;
+    if (number < before || (number == before && !_hasSession)) {
+      return _isbypages
+          ? 'You were already on page $before'
+          : 'You were already at $before%';
+    }
+    if (end > 0 && number > end) {
+      return _isbypages ? 'The book has $end pages' : 'That is more than 100%';
     }
     return null;
   }
@@ -66,26 +103,29 @@ class _AddBookProgressState extends State<AddBookProgress> {
         return;
       }
 
-      final totalPages = await _DatabaseServices.getTotalPages(widget.id);
-      final int? pagesRead = _isbypages
-          ? int.tryParse(_pagesController.text.trim())
-          : null;
-      final int percentageRead;
-      if (_isbypages) {
-        percentageRead = totalPages > 0
-            ? ((pagesRead ?? 0) / totalPages * 100).toInt()
-            : 0;
-      } else {
-        percentageRead =
-            int.tryParse(_percentageReadController.text.trim()) ?? 0;
-      }
+      final String typed =
+          (_isbypages ? _pagesController : _percentageReadController).text
+              .trim();
+      final progress = HabitServices.resolveProgress(
+        byPages: _isbypages,
+        // Left blank after a timed session: no change in position.
+        position:
+            int.tryParse(typed) ??
+            (_isbypages ? _currentPage : currentPercentage),
+        totalPages: _totalPages,
+        percentSoFar: currentPercentage,
+        currentPage: _currentPage,
+      );
       Entries newEntry = Entries(
         bookId: widget.id,
-        percentageRead: percentageRead,
+        percentageRead: progress.percent,
         summary: _summaryController.text.trim(),
         createdAt: DateTime.now().toIso8601String(),
-        pagesRead: pagesRead,
-        durationSeconds: widget.durationSeconds,
+        pagesRead: progress.pages,
+        // Without the timer, the minutes typed in fill today's ring.
+        durationSeconds: _hasSession
+            ? widget.durationSeconds
+            : (int.tryParse(_minutesController.text.trim()) ?? 0) * 60,
         hook: _hookController.text.trim(),
         absorption: _absorption,
       );
@@ -137,14 +177,16 @@ class _AddBookProgressState extends State<AddBookProgress> {
                   ),
                   SizedBox(height: 8),
                   Text(
-                    'Any amount keeps your streak. The two notes are optional.',
+                    _hasSession
+                        ? 'Any amount keeps your streak. The two notes are optional.'
+                        : 'Any amount keeps your streak. Add the minutes to fill today\'s ring.',
                     style: textTheme.bodyMedium?.copyWith(
                       color: LuminaColors.textSecondary,
                     ),
                   ),
                   SizedBox(height: 28),
                   SectionHeader(
-                    label: 'How far did you get?',
+                    label: 'Where are you now?',
                     researchKey: 'tracking',
                   ),
                   SizedBox(height: 8),
@@ -173,23 +215,48 @@ class _AddBookProgressState extends State<AddBookProgress> {
                       controller: _pagesController,
                       style: _fieldTextStyle,
                       decoration: InputDecoration(
-                        labelText: 'Pages read',
-                        hintText: 'Pages you read this session',
+                        labelText: 'Page you are on now',
+                        helperText: _totalPages > 0
+                            ? 'You were on page $_currentPage of $_totalPages'
+                            : 'You were on page $_currentPage',
                       ),
                       keyboardType: TextInputType.number,
-                      validator: (value) => _validateNumber(value, max: 5000),
+                      validator: _validatePosition,
                     )
                   else
                     TextFormField(
                       controller: _percentageReadController,
                       style: _fieldTextStyle,
                       decoration: InputDecoration(
-                        labelText: 'Percent of the book',
-                        hintText: 'How much of the book this session covered',
+                        labelText: 'Percent you are at now',
+                        helperText: 'You were at $_percentSoFar%',
                       ),
                       keyboardType: TextInputType.number,
-                      validator: (value) => _validateNumber(value, max: 100),
+                      validator: _validatePosition,
                     ),
+                  if (!_hasSession) ...[
+                    SizedBox(height: 12),
+                    TextFormField(
+                      controller: _minutesController,
+                      style: _fieldTextStyle,
+                      decoration: InputDecoration(
+                        labelText: 'Minutes read',
+                        hintText: 'Counts toward today\'s goal',
+                      ),
+                      keyboardType: TextInputType.number,
+                      validator: (value) {
+                        final String text = (value ?? '').trim();
+                        if (text.isEmpty) {
+                          return null;
+                        }
+                        final int? minutes = int.tryParse(text);
+                        if (minutes == null || minutes < 0 || minutes > 600) {
+                          return 'Please enter minutes between 0 and 600';
+                        }
+                        return null;
+                      },
+                    ),
+                  ],
                   SizedBox(height: 28),
                   SectionHeader(label: 'Keep one thing', researchKey: 'recall'),
                   SizedBox(height: 8),

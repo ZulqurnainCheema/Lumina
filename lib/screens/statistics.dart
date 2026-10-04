@@ -149,7 +149,7 @@ class _StatisticsScreenState extends State<StatisticsScreen>
               children: [
                 Text('Stats', style: textTheme.displayLarge),
                 const SizedBox(height: 24),
-                // The hero tile: days read this week, with the daily bars.
+                // The hero tile: days read in the last 7 days, with the daily bars.
                 Container(
                   padding: const EdgeInsets.fromLTRB(20, 14, 12, 12),
                   decoration: LuminaDecorations.card,
@@ -157,7 +157,7 @@ class _StatisticsScreenState extends State<StatisticsScreen>
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const SectionHeader(
-                        label: 'This week',
+                        label: 'Last 7 days',
                         researchKey: 'tracking',
                       ),
                       Text.rich(
@@ -221,7 +221,7 @@ class _StatisticsScreenState extends State<StatisticsScreen>
                   children: [
                     Expanded(
                       child: StatTile(
-                        label: 'Read this week',
+                        label: 'Time, last 7 days',
                         value: HabitServices.formatDuration(
                           stats.week['seconds']!,
                         ),
@@ -230,7 +230,7 @@ class _StatisticsScreenState extends State<StatisticsScreen>
                     const SizedBox(width: 12),
                     Expanded(
                       child: StatTile(
-                        label: 'Pages this week',
+                        label: 'Pages, last 7 days',
                         value: '${stats.week['pages']}',
                       ),
                     ),

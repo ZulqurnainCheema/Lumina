@@ -252,7 +252,9 @@ class DatabaseServices {
       await updateBook(bookId, {'status': 'reading'});
     }
     await updateBook(bookId, {'abandonedAt': null});
-    if (newTotal > 80) {
+    // A book is finished when all of it is read, the same point at which
+    // "pages left" reaches zero.
+    if (newTotal >= 100) {
       await updateBook(bookId, {'status': 'read'});
     }
   }
@@ -272,6 +274,28 @@ class DatabaseServices {
       return result.first['percentageRead'] as int? ?? 0;
     }
     return 0;
+  }
+
+  Future<int> getPagesRead(int bookId) async {
+    final Database db = await database;
+    final List<Map<String, dynamic>> result = await db.rawQuery(
+      'SELECT SUM(pagesRead) as pagesRead FROM entries WHERE bookId = ?',
+      [bookId],
+    );
+    return (result.first['pagesRead'] as num?)?.toInt() ?? 0;
+  }
+
+  // The page the reader is on. Uses the logged pages, or the percent for
+  // older entries that were logged without a page count.
+  Future<int> getCurrentPage(int bookId) async {
+    final int totalPages = await getTotalPages(bookId);
+    final int pages = await getPagesRead(bookId);
+    if (totalPages <= 0) {
+      return pages;
+    }
+    final int fromPercent = (await getPercentageRead(bookId) * totalPages / 100)
+        .round();
+    return (pages > fromPercent ? pages : fromPercent).clamp(0, totalPages);
   }
 
   Future<List<String>> getSummaries(int bookId) async {
@@ -303,7 +327,7 @@ class DatabaseServices {
     final int newTotal = await getPercentageRead(bookId);
     if (newTotal <= 0) {
       await updateBook(bookId, {'status': 'to-read'});
-    } else if (newTotal < 85) {
+    } else if (newTotal < 100) {
       await updateBook(bookId, {'status': 'reading'});
     } else {
       await updateBook(bookId, {'status': 'read'});

@@ -3,12 +3,15 @@ package com.example.lumina
 import android.appwidget.AppWidgetManager
 import android.content.Context
 import android.content.SharedPreferences
+import android.graphics.BitmapFactory
 import android.net.Uri
+import android.view.View
 import android.widget.RemoteViews
 import es.antonborri.home_widget.HomeWidgetLaunchIntent
 import es.antonborri.home_widget.HomeWidgetProvider
 
-// The streak with the last seven days as dots, oldest on the left.
+// Shows the in-app streak card, which the app draws to an image. Until the
+// app has run once there is no image, so a plain layout stands in.
 class LuminaStreakWidgetProvider : HomeWidgetProvider() {
     private val labelIds = intArrayOf(
         R.id.streak_day_label_0, R.id.streak_day_label_1, R.id.streak_day_label_2,
@@ -61,6 +64,16 @@ class LuminaStreakWidgetProvider : HomeWidgetProvider() {
                         dotId,
                         if (state == 's') 0xFFABA59B.toInt() else 0xFF11100E.toInt(),
                     )
+                }
+                val card = widgetData.getString("streakCard", null)
+                    ?.let { BitmapFactory.decodeFile(it) }
+                if (card != null) {
+                    setImageViewBitmap(R.id.streak_widget_image, card)
+                    setViewVisibility(R.id.streak_widget_image, View.VISIBLE)
+                    setViewVisibility(R.id.streak_widget_fallback, View.INVISIBLE)
+                } else {
+                    setViewVisibility(R.id.streak_widget_image, View.GONE)
+                    setViewVisibility(R.id.streak_widget_fallback, View.VISIBLE)
                 }
                 setOnClickPendingIntent(
                     R.id.streak_widget_root,

@@ -243,6 +243,11 @@ class LuminaTheme {
           fontSize: 14,
           fontWeight: FontWeight.w600,
         ),
+        helperStyle: GoogleFonts.manrope(
+          color: LuminaColors.textSecondary,
+          fontSize: 13,
+          fontWeight: FontWeight.w500,
+        ),
         errorStyle: GoogleFonts.manrope(
           color: LuminaColors.missed,
           fontSize: 12,

@@ -225,7 +225,8 @@ class HabitServices {
       percentage = await _databaseServices.getPercentageRead(book.id);
       hook = await _databaseServices.getLatestHook(book.id);
       if (book.totalPages > 0) {
-        pagesLeft = (book.totalPages * (100 - percentage) / 100).ceil();
+        pagesLeft =
+            book.totalPages - await _databaseServices.getCurrentPage(book.id);
         final double? secondsPerPage = await _databaseServices
             .getSecondsPerPage(book.id);
         if (secondsPerPage != null) {
@@ -389,6 +390,32 @@ class HabitServices {
     }
 
     return null;
+  }
+
+  // You log where you are now (page 42, or 13%), like a bookmark. This turns
+  // that into what was read since last time. Every entry stores both pages
+  // and percent, so progress bars, "pages left" and the stats always agree.
+  static ({int percent, int? pages}) resolveProgress({
+    required bool byPages,
+    required int position,
+    required int totalPages,
+    required int percentSoFar,
+    required int currentPage,
+  }) {
+    if (byPages) {
+      final int pages = (position - currentPage).clamp(0, position);
+      if (totalPages <= 0) {
+        return (percent: 0, pages: pages);
+      }
+      final int reached = (position * 100 / totalPages).floor().clamp(0, 100);
+      return (percent: (reached - percentSoFar).clamp(0, 100), pages: pages);
+    }
+    final int percent = (position - percentSoFar).clamp(0, 100);
+    if (totalPages <= 0) {
+      return (percent: percent, pages: null);
+    }
+    final int page = (position * totalPages / 100).round();
+    return (percent: percent, pages: (page - currentPage).clamp(0, page));
   }
 
   static String formatDuration(int seconds) {

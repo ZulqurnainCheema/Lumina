@@ -179,12 +179,15 @@ Widget buildBookCard(
           BookCover(coverUrl: book.coverUrl, title: book.title),
           const SizedBox(width: 14),
           Expanded(
-            child: FutureBuilder<int>(
-              future: databaseServices.getPercentageRead(book.id),
+            child: FutureBuilder<List<int>>(
+              future: Future.wait(<Future<int>>[
+                databaseServices.getPercentageRead(book.id),
+                databaseServices.getCurrentPage(book.id),
+              ]),
               builder: (context, snapshot) {
-                final int percentage = snapshot.data ?? 0;
+                final int percentage = snapshot.data?[0] ?? 0;
                 final int pagesLeft =
-                    (book.totalPages * (100 - percentage) / 100).ceil();
+                    book.totalPages - (snapshot.data?[1] ?? 0);
                 return Column(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,

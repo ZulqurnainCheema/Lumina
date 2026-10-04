@@ -255,6 +255,137 @@ void main() {
     });
   });
 
+  group('coherence', () {
+    test('a book is finished at 100%, not before', () async {
+      final int book = await addBook();
+      await databaseServices.addEntry({
+        'bookId': book,
+        'percentageRead': 90,
+        'summary': '',
+        'createdAt': today.toIso8601String(),
+      });
+      expect((await databaseServices.getBook(book))?.status, 'reading');
+      expect((await habitServices.getToday(now: today)).book?.id, book);
+
+      await databaseServices.addEntry({
+        'bookId': book,
+        'percentageRead': 10,
+        'summary': '',
+        'createdAt': today.toIso8601String(),
+      });
+      expect((await databaseServices.getBook(book))?.status, 'read');
+      expect(await databaseServices.getFinishedBooksCount(), 1);
+
+      // Deleting the last entry puts it back in progress.
+      final entries = await databaseServices.getEntries(book);
+      await databaseServices.deleteEntry(
+        entries.firstWhere((entry) => entry.percentageRead == 10).id!,
+      );
+      expect((await databaseServices.getBook(book))?.status, 'reading');
+    });
+
+    test('the page typed is where you are, not how many you read', () {
+      // Was on page 24, now on page 42 of 320.
+      final progress = HabitServices.resolveProgress(
+        byPages: true,
+        position: 42,
+        totalPages: 320,
+        percentSoFar: 7,
+        currentPage: 24,
+      );
+      expect(progress.pages, 18);
+      expect(progress.percent, 6); // 42 of 320 is 13%, up from 7%
+    });
+
+    test('the percent typed is where you are, and records the pages', () {
+      // Was at 10% (page 32), now at 25% of 320 pages.
+      final progress = HabitServices.resolveProgress(
+        byPages: false,
+        position: 25,
+        totalPages: 320,
+        percentSoFar: 10,
+        currentPage: 32,
+      );
+      expect(progress.percent, 15);
+      expect(progress.pages, 48);
+    });
+
+    test('short sessions add up instead of rounding to nothing', () {
+      // Three pages at a time through a 900-page book.
+      int percent = 0;
+      int page = 0;
+      for (int session = 1; session <= 6; session++) {
+        final progress = HabitServices.resolveProgress(
+          byPages: true,
+          position: session * 3,
+          totalPages: 900,
+          percentSoFar: percent,
+          currentPage: page,
+        );
+        percent += progress.percent;
+        page += progress.pages!;
+      }
+      expect(page, 18);
+      expect(percent, 2);
+    });
+
+    test('reaching the last page finishes the book', () {
+      final progress = HabitServices.resolveProgress(
+        byPages: true,
+        position: 300,
+        totalPages: 300,
+        percentSoFar: 60,
+        currentPage: 180,
+      );
+      expect(progress.percent, 40);
+      expect(progress.pages, 120);
+    });
+
+    test('pages left counts from the page you are on', () async {
+      final int book = await addBook(totalPages: 320);
+      await databaseServices.addEntry({
+        'bookId': book,
+        'percentageRead': 13,
+        'summary': '',
+        'createdAt': today.toIso8601String(),
+        'pagesRead': 42,
+      });
+
+      expect(await databaseServices.getCurrentPage(book), 42);
+      expect((await habitServices.getToday(now: today)).pagesLeft, 278);
+    });
+
+    test('the ring, the streak and the stats read the same entries', () async {
+      final int book = await addBook(totalPages: 200);
+      await databaseServices.addEntry({
+        'bookId': book,
+        'percentageRead': 10,
+        'summary': '',
+        'createdAt': today.toIso8601String(),
+        'pagesRead': 20,
+        'durationSeconds': 900,
+      });
+
+      final TodayData data = await habitServices.getToday(now: today);
+      final Map<String, int> week = await databaseServices.getPeriodSummary(
+        HabitServices.dateKey(daysAgo(6)),
+        HabitServices.dateKey(today),
+      );
+      final Map<String, int> lifetime = await databaseServices
+          .getLifetimeTotals();
+
+      expect(data.streak.readToday, isTrue);
+      expect(data.streak.current, 1);
+      expect(data.week.last.state, DayState.read);
+      expect(data.secondsToday, 900);
+      expect(week, containsPair('days', 1));
+      expect(week, containsPair('seconds', 900));
+      expect(week, containsPair('pages', 20));
+      expect(lifetime, containsPair('pages', 20));
+      expect(data.pagesLeft, 180);
+    });
+  });
+
   group('migration', () {
     test('a version 1 database upgrades with its rows intact', () async {
       final Directory directory = await Directory.systemTemp.createTemp(

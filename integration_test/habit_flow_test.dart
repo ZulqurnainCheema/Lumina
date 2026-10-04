@@ -10,6 +10,8 @@ import 'package:integration_test/integration_test.dart';
 import 'package:lumina/main.dart';
 import 'package:lumina/services/database_services.dart';
 import 'package:lumina/services/habit_services.dart';
+import 'package:lumina/theme.dart';
+import 'package:lumina/widgets/streak_card.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 // Every test saves one or more screenshots here; docs/testing.md shows them.
@@ -241,8 +243,8 @@ void main() {
     expect(find.textContaining('You read for'), findsOneWidget);
 
     await tester.enterText(
-      find.widgetWithText(TextFormField, 'Percent of the book'),
-      '3',
+      find.widgetWithText(TextFormField, 'Percent you are at now'),
+      '27',
     );
     await tester.enterText(
       find.widgetWithText(TextFormField, 'One line, from memory'),
@@ -304,8 +306,8 @@ void main() {
     await tester.tap(find.text('Done reading'));
     await settle(tester);
     await tester.enterText(
-      find.widgetWithText(TextFormField, 'Percent of the book'),
-      '2',
+      find.widgetWithText(TextFormField, 'Percent you are at now'),
+      '6',
     );
     await tester.ensureVisible(find.text('Save'));
     await tester.tap(find.text('Save'));
@@ -484,5 +486,104 @@ void main() {
 
     await tester.tap(find.text('Got it'));
     await settle(tester);
+  });
+
+  testWidgets('logging without the timer can still fill the ring', (
+    tester,
+  ) async {
+    await skipOpenPrompts();
+    final int book = await addBook();
+    await readOn(book, daysAgo(1));
+
+    Future<void> logManually({
+      required String page,
+      required String minutes,
+    }) async {
+      await tester.tap(find.text('Library'));
+      await settle(tester);
+      await tester.tap(find.text('Dune').last);
+      await settle(tester);
+      await tester.tap(find.text('Log manually'));
+      await settle(tester);
+      await tester.tap(find.text('Pages'));
+      await settle(tester);
+      expect(find.textContaining('You were on page'), findsOneWidget);
+      await tester.enterText(
+        find.widgetWithText(TextFormField, 'Page you are on now'),
+        page,
+      );
+      await tester.enterText(
+        find.widgetWithText(TextFormField, 'Minutes read'),
+        minutes,
+      );
+      if (minutes.isNotEmpty) {
+        await screenshot(tester, '23-log-current-page');
+      }
+      await tester.ensureVisible(find.text('Save'));
+      await tester.tap(find.text('Save'));
+      await settle(tester);
+      await goHome(tester);
+    }
+
+    await startApp(tester);
+
+    // No minutes typed: the streak counts, and the ring says why it is empty.
+    // The seeded session left the bookmark on page 13.
+    await logManually(page: '24', minutes: '');
+    expect(find.text('2 day streak'), findsOneWidget);
+    expect(find.text('Read today · no time logged'), findsOneWidget);
+
+    // Minutes typed: they fill the ring. Page 42 means 18 more pages, not 42.
+    await logManually(page: '42', minutes: '12');
+    expect(find.text('12'), findsOneWidget);
+    expect(find.text('of 10 min today'), findsOneWidget);
+    expect(await databaseServices.getCurrentPage(book), 42);
+    expect(await databaseServices.getPagesRead(book), 42);
+    expect(find.textContaining('278 pages left'), findsOneWidget);
+    await screenshot(tester, '24-manual-minutes');
+  });
+
+  testWidgets('the streak card draws on its own for the home-screen widget', (
+    tester,
+  ) async {
+    final int book = await addBook();
+    // Seven days earn a freeze, a missed day spends it, then two more days.
+    for (int day = 10; day >= 4; day--) {
+      await readOn(book, daysAgo(day));
+    }
+    await readOn(book, daysAgo(2));
+    await readOn(book, daysAgo(1));
+    final TodayData today = await HabitServices.instance.getToday();
+
+    // The same bare tree home_widget renders: no app, no Material ancestor.
+    await tester.binding.setSurfaceSize(const Size(372, 236));
+    await tester.pumpWidget(
+      RepaintBoundary(
+        key: screenshotKey,
+        child: Directionality(
+          textDirection: TextDirection.ltr,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Theme(
+                data: LuminaTheme.dark(),
+                child: SizedBox(
+                  width: 372,
+                  child: StreakCard(today: today, showWhy: false),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    await settle(tester);
+
+    expect(find.text('9 day streak'), findsOneWidget);
+    expect(find.text('One page keeps the streak.'), findsOneWidget);
+    expect(find.byIcon(Icons.check_rounded), findsNWidgets(5));
+    expect(find.byIcon(Icons.ac_unit_rounded), findsOneWidget);
+    expect(find.text('Why?'), findsNothing);
+    await screenshot(tester, '22-streak-widget');
   });
 }
