@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:lumina/research.dart';
+import 'package:lumina/services/backup_services.dart';
 import 'package:lumina/services/database_services.dart';
 import 'package:lumina/services/habit_services.dart';
 import 'package:lumina/services/notifications_center.dart';
@@ -366,6 +367,123 @@ void main() {
         'One page keeps the streak.',
         'Then: put the phone on the desk.',
       ]);
+    });
+  });
+
+  group('backup', () {
+    Future<int> seed() async {
+      final int book = await addBook();
+      await databaseServices.addEntry({
+        'bookId': book,
+        'percentageRead': 10,
+        'summary': 'Fear is the mind-killer.',
+        'createdAt': today.toIso8601String(),
+        'pagesRead': 30,
+        'durationSeconds': 1500,
+        'hook': 'Who betrayed the Atreides?',
+      });
+      await databaseServices.setSetting('dailyGoalMinutes', '20');
+      await databaseServices.setSetting('planCue', 'finish dinner');
+      await databaseServices.setSetting('sessionBookId', '$book');
+      await databaseServices.addStreakEvent('2026-03-10', 'freeze');
+      await databaseServices.addHabitCheck(17, today.toIso8601String());
+      return book;
+    }
+
+    test('a backup restores everything on an empty device', () async {
+      final int book = await seed();
+      final String json = await BackupServices.instance.exportJson(now: today);
+
+      // A fresh install.
+      final Database db = await databaseServices.database;
+      for (final String table in <String>[
+        'entries',
+        'books',
+        'settings',
+        'streak_events',
+        'habit_checks',
+      ]) {
+        await db.delete(table);
+      }
+      expect(await databaseServices.getBooks(), isEmpty);
+
+      final BackupSummary summary = await BackupServices.instance.importJson(
+        json,
+      );
+
+      expect(summary.books, 1);
+      expect(summary.entries, 1);
+      expect((await databaseServices.getBooks()).single.title, 'Dune');
+      final entry = (await databaseServices.getEntries(book)).single;
+      expect(entry.summary, 'Fear is the mind-killer.');
+      expect(entry.hook, 'Who betrayed the Atreides?');
+      expect(entry.durationSeconds, 1500);
+      expect(await habitServices.getGoalMinutes(), 20);
+      expect(await databaseServices.getSetting('planCue'), 'finish dinner');
+      expect(await databaseServices.getStreakEvents(), {
+        '2026-03-10': 'freeze',
+      });
+      expect(await databaseServices.getHabitChecks(), hasLength(1));
+      // A half-finished session on the old device is not carried over.
+      expect(await databaseServices.getSetting('sessionBookId'), isNull);
+    });
+
+    test('restoring replaces what is on the device', () async {
+      await seed();
+      final String json = await BackupServices.instance.exportJson(now: today);
+      final Database db = await databaseServices.database;
+      await db.insert('books', {
+        'title': 'Added after the backup',
+        'author': 'Someone',
+        'status': 'to-read',
+      });
+
+      await BackupServices.instance.importJson(json);
+
+      expect((await databaseServices.getBooks()).single.title, 'Dune');
+    });
+
+    test(
+      'a file that is not a backup is refused and changes nothing',
+      () async {
+        await seed();
+
+        for (final String bad in <String>[
+          'not json at all',
+          '{"app": "something-else", "books": [], "entries": []}',
+          '{"app": "lumina", "formatVersion": 99, "books": [], "entries": []}',
+        ]) {
+          await expectLater(
+            BackupServices.instance.importJson(bad),
+            throwsFormatException,
+          );
+        }
+
+        expect(await databaseServices.getBooks(), hasLength(1));
+      },
+    );
+
+    test('a backup with a broken row restores nothing', () async {
+      await seed();
+      const String broken =
+          '{"app": "lumina", "formatVersion": 1, "books": [], '
+          '"entries": [{"bookId": 999, "percentageRead": 5}]}';
+
+      await expectLater(
+        BackupServices.instance.importJson(broken),
+        throwsA(anything),
+      );
+
+      // The entry points at a book that does not exist, so the whole restore
+      // is rolled back.
+      expect((await databaseServices.getBooks()).single.title, 'Dune');
+    });
+
+    test('the file is named by date', () {
+      expect(
+        BackupServices.instance.fileName(now: DateTime(2026, 3, 5)),
+        'lumina-backup-2026-03-05.json',
+      );
     });
   });
 

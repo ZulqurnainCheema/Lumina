@@ -5,7 +5,7 @@ Every UI test below drives the real app on Linux at phone size (412 × 892) agai
 ## Running the tests
 
 ```bash
-# Logic: streaks, freezes, repair, migration, reminders, research entries (19 tests, about 1 second)
+# Logic: streaks, freezes, repair, migration, reminders, backup, research entries (24 tests, about 1 second)
 flutter test
 
 # UI flows, one or more screenshots per test (13 tests, 2 to 4 minutes, needs a display)
@@ -20,7 +20,8 @@ These need a real Android phone and have only been compiled, not exercised:
 
 - the daily reminder actually firing at the scheduled time,
 - the home-screen widget drawing and opening a reading session when tapped,
-- the notification permission prompt.
+- the notification permission prompt,
+- the system "save to" and file-picker screens used by backup and restore (the backup file itself is unit tested).
 
 The reminder *content and timing rules* are unit tested (see the last table).
 
@@ -196,5 +197,10 @@ Built on: Roediger & Karpicke (2006): 61% retained after a week when recalling, 
 | reminders | fire a little before the usual reading time | 15 minutes before your median entry time; 20:00 with no history |
 | reminders | count how many in a row were ignored | Used to drop to every other day after five ignored |
 | reminders | are written from the reader's own notes | Your hook, pages left, streak and plan, in rotation |
+| backup | a backup restores everything on an empty device | Books, sessions, notes, goal, plan, freezes and habit check-ins all come back; a half-finished session does not |
+| backup | restoring replaces what is on the device | A book added after the backup is gone after restoring |
+| backup | a file that is not a backup is refused and changes nothing | Random files, other apps' files and backups from a newer version are rejected |
+| backup | a backup with a broken row restores nothing | A damaged file rolls back completely instead of half-restoring |
+| backup | the file is named by date | `lumina-backup-2026-03-05.json` |
 | research | every why chip in the app points at a real entry | No "Why?" chip can open an empty sheet |
 | research | every entry cites a source or says it has none | No finding is shown without a citation or an explicit "no study" note |

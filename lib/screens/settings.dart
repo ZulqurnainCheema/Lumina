@@ -1,10 +1,15 @@
+import 'dart:convert';
+
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:lumina/services/backup_services.dart';
 import 'package:lumina/services/database_services.dart';
 import 'package:lumina/services/habit_services.dart';
 import 'package:lumina/services/home_widget_service.dart';
 import 'package:lumina/services/notifications_center.dart';
 import 'package:lumina/theme.dart';
+import 'package:lumina/widgets/lumina_sheet.dart';
 import 'package:lumina/widgets/section_header.dart';
 
 class Settings extends StatefulWidget {
@@ -54,6 +59,77 @@ class _SettingsState extends State<Settings> {
     });
     await _databaseServices.setSetting('remindersEnabled', enabled ? '1' : '0');
     await NotificationsCenter.instance.refresh();
+  }
+
+  void _showMessage(String message) {
+    if (!mounted) {
+      return;
+    }
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  // Opens the system "save to" screen, where Google Drive is one of the
+  // places the file can go.
+  Future<void> _saveBackup() async {
+    try {
+      final String json = await BackupServices.instance.exportJson();
+      final Uri? saved = await FilePicker.saveFile(
+        dialogTitle: 'Save Lumina backup',
+        fileName: BackupServices.instance.fileName(),
+        bytes: utf8.encode(json),
+        mimeType: 'application/json',
+        type: FileType.custom,
+        allowedExtensions: <String>['json'],
+      );
+      if (saved != null) {
+        _showMessage('Backup saved.');
+      }
+    } catch (error) {
+      _showMessage('Could not save the backup.');
+    }
+  }
+
+  Future<void> _restoreBackup() async {
+    try {
+      final PlatformFile? file = await FilePicker.pickFile(
+        dialogTitle: 'Choose a Lumina backup',
+      );
+      if (file == null) {
+        return;
+      }
+      final String json = utf8.decode(await file.readAsBytes());
+      final BackupSummary summary = BackupServices.instance.inspect(json);
+      if (!mounted) {
+        return;
+      }
+      final String date = summary.createdAt == null
+          ? ''
+          : ' from ${HabitServices.dateKey(summary.createdAt!)}';
+      final bool? confirmed = await showLuminaSheet(
+        context,
+        title: 'Replace everything on this device?',
+        body:
+            'The backup$date has ${summary.books} books and '
+            '${summary.entries} sessions. Restoring it removes what is on '
+            'this device now. This cannot be undone.',
+        confirm: 'Restore backup',
+        dismiss: 'Cancel',
+      );
+      if (confirmed != true) {
+        return;
+      }
+      await BackupServices.instance.importJson(json);
+      await NotificationsCenter.instance.refresh();
+      await HomeWidgetService.update();
+      await _loadSettings();
+      _showMessage('Backup restored.');
+    } on FormatException catch (error) {
+      _showMessage(error.message);
+    } catch (error) {
+      _showMessage('Could not read that file.');
+    }
   }
 
   Widget _buildLink({
@@ -135,6 +211,27 @@ class _SettingsState extends State<Settings> {
             title: 'Weekly review',
             subtitle: 'Last 7 days and how automatic reading feels',
             route: '/review',
+          ),
+          const SizedBox(height: 20),
+          const SectionHeader(label: 'Backup'),
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            title: const Text('Save a backup'),
+            subtitle: const Text(
+              'One file with your books, sessions, notes and streak. Save it '
+              'to Google Drive or anywhere else.',
+            ),
+            trailing: const Icon(Icons.upload_rounded),
+            onTap: _saveBackup,
+          ),
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            title: const Text('Restore from a backup'),
+            subtitle: const Text(
+              'Pick a backup file. It replaces what is on this device.',
+            ),
+            trailing: const Icon(Icons.download_rounded),
+            onTap: _restoreBackup,
           ),
           const SizedBox(height: 20),
           const SectionHeader(label: 'About'),
