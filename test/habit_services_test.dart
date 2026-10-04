@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:lumina/research.dart';
 import 'package:lumina/services/database_services.dart';
 import 'package:lumina/services/habit_services.dart';
 import 'package:lumina/services/notifications_center.dart';
@@ -365,6 +366,41 @@ void main() {
         'One page keeps the streak.',
         'Then: put the phone on the desk.',
       ]);
+    });
+  });
+
+  group('research', () {
+    test('every why chip in the app points at a real entry', () {
+      final RegExp usage = RegExp(r"researchKey: '(\w+)'");
+      final Set<String> usedKeys = <String>{};
+      for (final FileSystemEntity file in Directory(
+        'lib',
+      ).listSync(recursive: true)) {
+        if (file is File && file.path.endsWith('.dart')) {
+          usedKeys.addAll(
+            usage.allMatches(file.readAsStringSync()).map((m) => m.group(1)!),
+          );
+        }
+      }
+
+      expect(usedKeys, isNotEmpty);
+      final Set<String> known = researchEntries.map((e) => e.key).toSet();
+      expect(usedKeys.difference(known), isEmpty);
+    });
+
+    test('every entry cites a source or says it has none', () {
+      for (final Research research in researchEntries) {
+        expect(research.finding, isNotEmpty);
+        expect(
+          research.citation.isNotEmpty || research.note != null,
+          isTrue,
+          reason: research.key,
+        );
+      }
+      expect(
+        researchEntries.map((e) => e.key).toSet(),
+        hasLength(researchEntries.length),
+      );
     });
   });
 }

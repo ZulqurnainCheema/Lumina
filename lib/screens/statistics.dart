@@ -1,8 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:lumina/services/database_services.dart';
 import 'package:lumina/services/habit_services.dart';
 import 'package:lumina/theme.dart';
+import 'package:lumina/widgets/empty_state.dart';
+import 'package:lumina/widgets/route_refresh.dart';
+import 'package:lumina/widgets/section_header.dart';
+import 'package:lumina/widgets/stat_tile.dart';
+import 'package:material_symbols_icons/material_symbols_icons.dart';
 import 'package:syncfusion_flutter_charts/charts.dart';
 
 class StatisticsScreen extends StatefulWidget {
@@ -12,10 +18,22 @@ class StatisticsScreen extends StatefulWidget {
   State<StatisticsScreen> createState() => _StatisticsScreenState();
 }
 
-class _StatisticsScreenState extends State<StatisticsScreen> {
+class _StatisticsScreenState extends State<StatisticsScreen>
+    with RouteRefresh<StatisticsScreen> {
+  static const int _chartDays = 14;
+
   final DatabaseServices _databaseServices = DatabaseServices.instance;
-  Future<_StatisticsViewData>? _statisticsFuture;
-  final TooltipBehavior _tooltipBehavior = TooltipBehavior(enable: true);
+  late Future<_StatisticsViewData> _statisticsFuture;
+
+  @override
+  String get routePath => '/statistics';
+
+  @override
+  void onRouteShown() {
+    setState(() {
+      _statisticsFuture = _loadStatisticsData();
+    });
+  }
 
   @override
   void initState() {
@@ -24,18 +42,37 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
   }
 
   Future<_StatisticsViewData> _loadStatisticsData() async {
-    final Map<String, dynamic> report = await _databaseServices
-        .getProgressReportbyDateofAllBooks();
+    final DateTime now = DateTime.now();
+    final DateTime today = DateTime(now.year, now.month, now.day);
     final StreakState streakState = await HabitServices.instance
         .getStreakState();
-    final DateTime now = DateTime.now();
     final Map<String, int> week = await _databaseServices.getPeriodSummary(
       HabitServices.dateKey(DateTime(now.year, now.month, now.day - 6)),
       HabitServices.dateKey(now),
     );
     final Map<String, int> lifetime = await _databaseServices
         .getLifetimeTotals();
-    final int? bestHour = await _databaseServices.getBestReadingHour();
+    final int finishedBooks = await _databaseServices.getFinishedBooksCount();
+    final bool hasEntries = await _databaseServices.getLastEntryTime() != null;
+
+    final Map<String, int> minutesByDate = await _databaseServices
+        .getMinutesByDate(
+          HabitServices.dateKey(
+            DateTime(now.year, now.month, now.day - (_chartDays - 1)),
+          ),
+        );
+    final List<_MinutesPoint> minutes = <_MinutesPoint>[
+      for (int offset = _chartDays - 1; offset >= 0; offset--)
+        _MinutesPoint(
+          date: DateTime(today.year, today.month, today.day - offset),
+          minutes:
+              minutesByDate[HabitServices.dateKey(
+                DateTime(today.year, today.month, today.day - offset),
+              )] ??
+              0,
+        ),
+    ];
+
     final List<_HabitPoint> habitData =
         (await _databaseServices.getHabitChecks())
             .map(
@@ -45,311 +82,315 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
               ),
             )
             .toList();
-    final int weeklyProgress = await _databaseServices.getWeeklyProgress();
-    final double averageDailyProgress = await _databaseServices
-        .getAverageDailyProgress();
-    final int finishedBooks = await _databaseServices.getFinishedBooksCount();
-
-    final List<String> dates = List<String>.from(
-      report['dates'] as List<dynamic>? ?? <dynamic>[],
-    );
-    final List<int> progress = List<int>.from(
-      report['progress'] as List<dynamic>? ?? <dynamic>[],
-    );
-
-    final int itemCount = dates.length < progress.length
-        ? dates.length
-        : progress.length;
-
-    final List<_ReadingProgressPoint> chartData =
-        List<_ReadingProgressPoint>.generate(itemCount, (int index) {
-          return _ReadingProgressPoint(
-            date: DateTime.parse(dates[index]),
-            pagesReadPercent: progress[index],
-          );
-        });
 
     return _StatisticsViewData(
-      chartData: chartData,
+      hasEntries: hasEntries,
       streak: streakState.current,
       longestStreak: streakState.longest,
-      weekSeconds: week['seconds']!,
+      week: week,
       lifetimePages: lifetime['pages']!,
-      bestHour: bestHour,
-      habitData: habitData,
-      weeklyProgress: weeklyProgress,
-      averageDailyProgress: averageDailyProgress,
+      lifetimeSeconds: lifetime['seconds']!,
       finishedBooks: finishedBooks,
+      minutes: minutes,
+      habitData: habitData,
     );
   }
 
   @override
   Widget build(BuildContext context) {
+    final TextTheme textTheme = Theme.of(context).textTheme;
+    final TextStyle? axisStyle = textTheme.bodySmall?.copyWith(
+      fontSize: 11,
+      color: LuminaColors.textTertiary,
+    );
     return Scaffold(
-      appBar: AppBar(title: const Text('Statistics')),
-      body: Stack(
-        children: [
-          const Positioned.fill(
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: RadialGradient(
-                  center: Alignment.topCenter,
-                  radius: 1.5,
-                  colors: [Color(0xFF13311F), LuminaColors.background],
+      body: SafeArea(
+        child: FutureBuilder<_StatisticsViewData>(
+          future: _statisticsFuture,
+          builder: (context, snapshot) {
+            if (snapshot.hasError) {
+              return Center(
+                child: Text(
+                  'Failed to load statistics.\n${snapshot.error}',
+                  textAlign: TextAlign.center,
+                  style: textTheme.bodyMedium,
                 ),
-              ),
-            ),
-          ),
-          SafeArea(
-            child: FutureBuilder<_StatisticsViewData>(
-              future: _statisticsFuture,
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator());
-                }
+              );
+            }
+            if (!snapshot.hasData) {
+              return const Center(child: CircularProgressIndicator());
+            }
 
-                if (snapshot.hasError) {
-                  return Center(
-                    child: Text(
-                      'Failed to load statistics.\n${snapshot.error}',
-                      textAlign: TextAlign.center,
-                      style: Theme.of(context).textTheme.bodyMedium,
+            final _StatisticsViewData stats = snapshot.data!;
+            if (!stats.hasEntries) {
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+                    child: Text('Stats', style: textTheme.displayLarge),
+                  ),
+                  const Expanded(
+                    child: EmptyState(
+                      icon: Symbols.bar_chart,
+                      message:
+                          'No reading yet. Your streak, reading time and '
+                          'habit strength show up here after your first '
+                          'session.',
                     ),
-                  );
-                }
+                  ),
+                ],
+              );
+            }
 
-                if (!snapshot.hasData) {
-                  return Center(
-                    child: Text(
-                      'No statistics available yet.',
-                      style: Theme.of(context).textTheme.bodyMedium,
-                    ),
-                  );
-                }
-
-                final _StatisticsViewData stats = snapshot.data!;
-                final List<_ReadingProgressPoint> data = stats.chartData;
-                if (data.isEmpty) {
-                  return Center(
-                    child: Text(
-                      'No reading progress yet.\nAdd a few book updates to see your chart.',
-                      textAlign: TextAlign.center,
-                      style: Theme.of(context).textTheme.bodyMedium,
-                    ),
-                  );
-                }
-
-                final DateTime minDate = data.first.date.subtract(
-                  const Duration(days: 1),
-                );
-                final DateTime maxDate = data.last.date.add(
-                  const Duration(days: 1),
-                );
-
-                return ListView(
-                  padding: const EdgeInsets.all(20),
+            return ListView(
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+              children: [
+                Text('Stats', style: textTheme.displayLarge),
+                const SizedBox(height: 24),
+                const SectionHeader(
+                  label: 'This week',
+                  researchKey: 'tracking',
+                ),
+                const SizedBox(height: 8),
+                Row(
                   children: [
-                    SizedBox(
-                      child: GridView.count(
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        crossAxisCount: 2,
-                        crossAxisSpacing: 12,
-                        mainAxisSpacing: 12,
-                        childAspectRatio: 1.1,
-                        children: [
-                          _StatTile(
-                            icon: Icons.local_fire_department_rounded,
-                            label: 'Streak',
-                            value: '${stats.streak}',
-                            detail: 'days',
-                          ),
-                          _StatTile(
-                            icon: Icons.show_chart_rounded,
-                            label: '7-Day Progress',
-                            value: '${stats.weeklyProgress}',
-                            detail: '%',
-                          ),
-                          _StatTile(
-                            icon: Icons.analytics_rounded,
-                            label: 'Daily Average',
-                            value: stats.averageDailyProgress.toStringAsFixed(
-                              1,
-                            ),
-                            detail: '%',
-                          ),
-                          _StatTile(
-                            icon: Icons.menu_book_rounded,
-                            label: 'Books Finished',
-                            value: '${stats.finishedBooks}',
-                            detail: 'books',
-                          ),
-                          _StatTile(
-                            icon: Icons.emoji_events_rounded,
-                            label: 'Longest Streak',
-                            value: '${stats.longestStreak}',
-                            detail: 'days',
-                          ),
-                          _StatTile(
-                            icon: Icons.timer_rounded,
-                            label: '7-Day Time',
-                            value: HabitServices.formatDuration(
-                              stats.weekSeconds,
-                            ),
-                            detail: 'read',
-                          ),
-                          _StatTile(
-                            icon: Icons.schedule_rounded,
-                            label: 'Usual Hour',
-                            value: stats.bestHour == null
-                                ? '-'
-                                : '${stats.bestHour}:00',
-                            detail: 'most entries',
-                          ),
-                          _StatTile(
-                            icon: Icons.auto_stories_rounded,
-                            label: 'Lifetime',
-                            value: '${stats.lifetimePages}',
-                            detail: 'pages',
-                          ),
-                        ],
+                    Expanded(
+                      child: StatTile(
+                        label: 'Days read',
+                        value: '${stats.week['days']}',
+                        unit: 'of 7',
                       ),
                     ),
-                    const SizedBox(height: 16),
-                    SizedBox(
-                      height: 320,
-                      child: Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(20),
-                        decoration: LuminaDecorations.card,
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: StatTile(
+                        label: 'Time',
+                        value: HabitServices.formatDuration(
+                          stats.week['seconds']!,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: StatTile(
+                        label: 'Pages',
+                        value: '${stats.week['pages']}',
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                Container(
+                  height: 220,
+                  padding: const EdgeInsets.fromLTRB(12, 16, 16, 8),
+                  decoration: LuminaDecorations.card,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.only(left: 4),
+                        child: Text(
+                          'Minutes per day, last $_chartDays days',
+                          style: textTheme.bodySmall,
+                        ),
+                      ),
+                      Expanded(
                         child: SfCartesianChart(
                           backgroundColor: Colors.transparent,
                           plotAreaBorderWidth: 0,
-                          tooltipBehavior: _tooltipBehavior,
-                          title: ChartTitle(
-                            text: 'Reading Progress by Day',
-                            textStyle: Theme.of(context).textTheme.titleMedium,
-                          ),
-                          primaryXAxis: DateTimeAxis(
-                            intervalType: DateTimeIntervalType.days,
-                            minimum: minDate,
-                            maximum: maxDate,
-                            dateFormat: DateFormat.MMMd(),
-                            edgeLabelPlacement: EdgeLabelPlacement.shift,
+                          margin: const EdgeInsets.only(top: 12),
+                          primaryXAxis: DateTimeCategoryAxis(
+                            dateFormat: DateFormat.d(),
                             majorGridLines: const MajorGridLines(width: 0),
+                            majorTickLines: const MajorTickLines(size: 0),
                             axisLine: const AxisLine(width: 0),
-                            labelStyle: Theme.of(context).textTheme.bodySmall
-                                ?.copyWith(color: LuminaColors.neutral),
+                            labelStyle: axisStyle,
                           ),
                           primaryYAxis: NumericAxis(
                             minimum: 0,
                             axisLine: const AxisLine(width: 0),
-                            majorGridLines: MajorGridLines(
+                            majorTickLines: const MajorTickLines(size: 0),
+                            majorGridLines: const MajorGridLines(
                               width: 0.8,
-                              color: LuminaColors.borderSoft,
+                              color: LuminaColors.borderSubtle,
                             ),
-                            labelStyle: Theme.of(context).textTheme.bodySmall
-                                ?.copyWith(color: LuminaColors.neutral),
-                            title: AxisTitle(
-                              text: 'Progress Logged',
-                              textStyle: Theme.of(context).textTheme.bodySmall
-                                  ?.copyWith(color: LuminaColors.neutral),
-                            ),
+                            labelStyle: axisStyle,
                           ),
-                          series:
-                              <
-                                CartesianSeries<_ReadingProgressPoint, DateTime>
-                              >[
-                                LineSeries<_ReadingProgressPoint, DateTime>(
-                                  dataSource: data,
-                                  xValueMapper:
-                                      (_ReadingProgressPoint point, _) =>
-                                          point.date,
-                                  yValueMapper:
-                                      (_ReadingProgressPoint point, _) =>
-                                          point.pagesReadPercent,
-                                  color: LuminaColors.accent,
-                                  width: 3,
-                                  markerSettings: const MarkerSettings(
-                                    isVisible: true,
-                                    width: 7,
-                                    height: 7,
-                                    borderWidth: 2,
-                                    color: LuminaColors.accent,
-                                    borderColor: LuminaColors.background,
-                                  ),
-                                ),
-                              ],
-                        ),
-                      ),
-                    ),
-                    if (stats.habitData.isNotEmpty) ...[
-                      const SizedBox(height: 16),
-                      Container(
-                        height: 260,
-                        padding: const EdgeInsets.all(20),
-                        decoration: LuminaDecorations.card,
-                        child: SfCartesianChart(
-                          backgroundColor: Colors.transparent,
-                          plotAreaBorderWidth: 0,
-                          title: ChartTitle(
-                            text: 'Habit Strength',
-                            textStyle: Theme.of(context).textTheme.titleMedium,
-                          ),
-                          primaryXAxis: DateTimeAxis(
-                            dateFormat: DateFormat.MMMd(),
-                            majorGridLines: const MajorGridLines(width: 0),
-                            axisLine: const AxisLine(width: 0),
-                            labelStyle: Theme.of(context).textTheme.bodySmall
-                                ?.copyWith(color: LuminaColors.neutral),
-                          ),
-                          primaryYAxis: NumericAxis(
-                            minimum: 4,
-                            maximum: 28,
-                            axisLine: const AxisLine(width: 0),
-                            majorGridLines: MajorGridLines(
-                              width: 0.8,
-                              color: LuminaColors.borderSoft,
-                            ),
-                            labelStyle: Theme.of(context).textTheme.bodySmall
-                                ?.copyWith(color: LuminaColors.neutral),
-                          ),
-                          series: <CartesianSeries<_HabitPoint, DateTime>>[
-                            LineSeries<_HabitPoint, DateTime>(
-                              dataSource: stats.habitData,
-                              xValueMapper: (_HabitPoint point, _) =>
+                          series: <CartesianSeries<_MinutesPoint, DateTime>>[
+                            ColumnSeries<_MinutesPoint, DateTime>(
+                              dataSource: stats.minutes,
+                              xValueMapper: (_MinutesPoint point, _) =>
                                   point.date,
-                              yValueMapper: (_HabitPoint point, _) =>
-                                  point.score,
+                              yValueMapper: (_MinutesPoint point, _) =>
+                                  point.minutes,
                               color: LuminaColors.accent,
-                              width: 3,
-                              markerSettings: const MarkerSettings(
-                                isVisible: true,
+                              borderRadius: const BorderRadius.vertical(
+                                top: Radius.circular(4),
                               ),
+                              animationDuration: 0,
                             ),
                           ],
                         ),
                       ),
                     ],
+                  ),
+                ),
+                const SizedBox(height: 28),
+                const SectionHeader(label: 'All time', researchKey: 'streak'),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: StatTile(
+                        label: 'Current streak',
+                        value: '${stats.streak}',
+                        unit: 'days',
+                        valueColor: LuminaColors.streak,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: StatTile(
+                        label: 'Longest streak',
+                        value: '${stats.longestStreak}',
+                        unit: 'days',
+                      ),
+                    ),
                   ],
-                );
-              },
-            ),
-          ),
-        ],
+                ),
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    Expanded(
+                      child: StatTile(
+                        label: 'Books',
+                        value: '${stats.finishedBooks}',
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: StatTile(
+                        label: 'Pages',
+                        value: '${stats.lifetimePages}',
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: StatTile(
+                        label: 'Time',
+                        value: HabitServices.formatDuration(
+                          stats.lifetimeSeconds,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 28),
+                const SectionHeader(
+                  label: 'Habit strength',
+                  researchKey: 'habitStrength',
+                ),
+                const SizedBox(height: 8),
+                if (stats.habitData.isEmpty)
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: LuminaDecorations.card,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Answer four questions in the weekly review and '
+                          'this becomes a line showing how automatic reading '
+                          'is getting.',
+                          style: textTheme.bodyMedium?.copyWith(
+                            color: LuminaColors.textSecondary,
+                          ),
+                        ),
+                        const SizedBox(height: 14),
+                        OutlinedButton(
+                          onPressed: () => GoRouter.of(context).push('/review'),
+                          child: const Text('Do the weekly review'),
+                        ),
+                      ],
+                    ),
+                  )
+                else
+                  Container(
+                    height: 240,
+                    padding: const EdgeInsets.fromLTRB(12, 16, 16, 8),
+                    decoration: LuminaDecorations.card,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.only(left: 4),
+                          child: Text(
+                            '4 means reading takes effort every time. 28 '
+                            'means it happens without thinking.',
+                            style: textTheme.bodySmall,
+                          ),
+                        ),
+                        Expanded(
+                          child: SfCartesianChart(
+                            backgroundColor: Colors.transparent,
+                            plotAreaBorderWidth: 0,
+                            margin: const EdgeInsets.only(top: 12),
+                            primaryXAxis: DateTimeAxis(
+                              dateFormat: DateFormat.MMMd(),
+                              majorGridLines: const MajorGridLines(width: 0),
+                              majorTickLines: const MajorTickLines(size: 0),
+                              axisLine: const AxisLine(width: 0),
+                              labelStyle: axisStyle,
+                            ),
+                            primaryYAxis: NumericAxis(
+                              minimum: 4,
+                              maximum: 28,
+                              interval: 8,
+                              axisLine: const AxisLine(width: 0),
+                              majorTickLines: const MajorTickLines(size: 0),
+                              majorGridLines: const MajorGridLines(
+                                width: 0.8,
+                                color: LuminaColors.borderSubtle,
+                              ),
+                              labelStyle: axisStyle,
+                            ),
+                            series: <CartesianSeries<_HabitPoint, DateTime>>[
+                              LineSeries<_HabitPoint, DateTime>(
+                                dataSource: stats.habitData,
+                                xValueMapper: (_HabitPoint point, _) =>
+                                    point.date,
+                                yValueMapper: (_HabitPoint point, _) =>
+                                    point.score,
+                                color: LuminaColors.accent,
+                                width: 3,
+                                animationDuration: 0,
+                                markerSettings: const MarkerSettings(
+                                  isVisible: true,
+                                  color: LuminaColors.accent,
+                                  borderColor: LuminaColors.surface,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+              ],
+            );
+          },
+        ),
       ),
     );
   }
 }
 
-class _ReadingProgressPoint {
-  const _ReadingProgressPoint({
-    required this.date,
-    required this.pagesReadPercent,
-  });
+class _MinutesPoint {
+  const _MinutesPoint({required this.date, required this.minutes});
 
   final DateTime date;
-  final int pagesReadPercent;
+  final int minutes;
 }
 
 class _HabitPoint {
@@ -361,60 +402,24 @@ class _HabitPoint {
 
 class _StatisticsViewData {
   const _StatisticsViewData({
-    required this.chartData,
+    required this.hasEntries,
     required this.streak,
     required this.longestStreak,
-    required this.weekSeconds,
+    required this.week,
     required this.lifetimePages,
-    required this.bestHour,
-    required this.habitData,
-    required this.weeklyProgress,
-    required this.averageDailyProgress,
+    required this.lifetimeSeconds,
     required this.finishedBooks,
+    required this.minutes,
+    required this.habitData,
   });
 
-  final List<_ReadingProgressPoint> chartData;
+  final bool hasEntries;
   final int streak;
   final int longestStreak;
-  final int weekSeconds;
+  final Map<String, int> week;
   final int lifetimePages;
-  final int? bestHour;
-  final List<_HabitPoint> habitData;
-  final int weeklyProgress;
-  final double averageDailyProgress;
+  final int lifetimeSeconds;
   final int finishedBooks;
-}
-
-class _StatTile extends StatelessWidget {
-  const _StatTile({
-    required this.icon,
-    required this.label,
-    required this.value,
-    required this.detail,
-  });
-
-  final IconData icon;
-  final String label;
-  final String value;
-  final String detail;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: LuminaDecorations.card,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(icon, color: LuminaColors.accent, size: 22),
-          const SizedBox(height: 14),
-          Text(value, style: Theme.of(context).textTheme.headlineMedium),
-          Text(detail, style: Theme.of(context).textTheme.labelMedium),
-          const SizedBox(height: 6),
-          Text(label, style: Theme.of(context).textTheme.bodySmall),
-        ],
-      ),
-    );
-  }
+  final List<_MinutesPoint> minutes;
+  final List<_HabitPoint> habitData;
 }

@@ -10,7 +10,6 @@ import 'package:integration_test/integration_test.dart';
 import 'package:lumina/main.dart';
 import 'package:lumina/services/database_services.dart';
 import 'package:lumina/services/habit_services.dart';
-import 'package:material_symbols_icons/material_symbols_icons.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 // Every test saves one or more screenshots here; docs/testing.md shows them.
@@ -150,10 +149,11 @@ void main() {
       find.text('After I finish dinner, I read in the armchair.'),
       findsOneWidget,
     );
-    await screenshot(tester, '02-plan-on-home');
+    expect(find.text('Add your first book'), findsOneWidget);
+    await screenshot(tester, '02-today-empty');
   });
 
-  testWidgets('today card shows the streak, the hook and the time left', (
+  testWidgets('today shows the streak, the open question and the time left', (
     tester,
   ) async {
     await skipOpenPrompts();
@@ -170,13 +170,47 @@ void main() {
 
     expect(find.text('9 day streak'), findsOneWidget);
     expect(find.text('One page keeps the streak.'), findsOneWidget);
-    expect(
-      find.text('You wanted to know: Does Jessica survive the desert?'),
-      findsOneWidget,
-    );
+    expect(find.text('1 freeze banked'), findsOneWidget);
+    expect(find.text('Does Jessica survive the desert?'), findsOneWidget);
     expect(find.textContaining('pages left'), findsOneWidget);
-    expect(find.byIcon(Icons.ac_unit_rounded), findsOneWidget);
-    await screenshot(tester, '03-today-card');
+    // One main action on the screen.
+    expect(find.byType(ElevatedButton), findsOneWidget);
+    await screenshot(tester, '03-today');
+  });
+
+  testWidgets('a why chip opens the finding and its source', (tester) async {
+    await skipOpenPrompts();
+    final int book = await addBook();
+    await readOn(book, daysAgo(1));
+
+    await startApp(tester);
+    await tester.tap(find.text('Why?').first);
+    await settle(tester);
+
+    expect(find.text('A streak you can repair'), findsOneWidget);
+    expect(find.textContaining('Silverman & Barasch (2023)'), findsOneWidget);
+    await screenshot(tester, '04-why-sheet');
+
+    await tester.tap(find.text('See all the science'));
+    await settle(tester);
+
+    expect(find.text('The science'), findsOneWidget);
+    await screenshot(tester, '05-science');
+
+    await tester.scrollUntilVisible(
+      find.text('No points, coins or prizes'),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(find.text('No points, coins or prizes'));
+    await settle(tester);
+    await tester.scrollUntilVisible(
+      find.textContaining('Deci, Koestner & Ryan (1999)'),
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await screenshot(tester, '06-science-left-out');
+    await goHome(tester);
   });
 
   testWidgets('a reading session is timed, logged and hits a milestone', (
@@ -194,43 +228,40 @@ void main() {
     await settle(tester);
 
     expect(find.text('Done reading'), findsOneWidget);
-    await screenshot(tester, '04-reading-session');
+    await screenshot(tester, '07-reading-session');
 
     await tester.tap(find.text('Done reading'));
     await settle(tester);
     expect(find.textContaining('You read for'), findsOneWidget);
 
     await tester.enterText(
-      find.widgetWithText(TextFormField, 'Percentage Read'),
+      find.widgetWithText(TextFormField, 'Percent of the book'),
       '3',
     );
     await tester.enterText(
-      find.widgetWithText(TextFormField, 'One thing worth keeping'),
+      find.widgetWithText(TextFormField, 'One line, from memory'),
       'Fear is the mind-killer.',
     );
     await tester.enterText(
-      find.widgetWithText(TextFormField, 'What do you want to find out next?'),
+      find.widgetWithText(TextFormField, 'Your open question'),
       'Who betrayed the Atreides?',
     );
     await tester.ensureVisible(find.text('4'));
     await tester.tap(find.text('4'));
-    await screenshot(tester, '05-session-wrap-up');
+    await screenshot(tester, '08-session-wrap-up');
 
     await tester.ensureVisible(find.text('Save'));
     await tester.tap(find.text('Save'));
     await settle(tester);
 
     expect(find.text('7 days in a row'), findsOneWidget);
-    await screenshot(tester, '06-streak-milestone');
+    await screenshot(tester, '09-streak-milestone');
 
     await tester.tap(find.text('Keep going'));
     await settle(tester);
 
     expect(find.text('7 day streak'), findsOneWidget);
-    expect(
-      find.text('You wanted to know: Who betrayed the Atreides?'),
-      findsOneWidget,
-    );
+    expect(find.text('Who betrayed the Atreides?'), findsOneWidget);
     final entries = await databaseServices.getEntries(book);
     expect(entries.first.durationSeconds, greaterThan(0));
     expect(entries.first.absorption, 4);
@@ -253,7 +284,7 @@ void main() {
       ),
       findsOneWidget,
     );
-    await screenshot(tester, '07-streak-repair');
+    await screenshot(tester, '10-streak-repair');
   });
 
   testWidgets('coming back after a gap is celebrated', (tester) async {
@@ -262,12 +293,12 @@ void main() {
     await readOn(book, daysAgo(5));
 
     await startApp(tester);
-    await tester.tap(find.byTooltip('start reading'));
+    await tester.tap(find.text('Continue reading'));
     await settle(tester);
     await tester.tap(find.text('Done reading'));
     await settle(tester);
     await tester.enterText(
-      find.widgetWithText(TextFormField, 'Percentage Read'),
+      find.widgetWithText(TextFormField, 'Percent of the book'),
       '2',
     );
     await tester.ensureVisible(find.text('Save'));
@@ -275,26 +306,67 @@ void main() {
     await settle(tester);
 
     expect(find.text('You came back.'), findsOneWidget);
-    await screenshot(tester, '08-comeback');
+    await screenshot(tester, '11-comeback');
 
     await tester.tap(find.text('Keep going'));
     await settle(tester);
     expect(find.text('1 day streak'), findsOneWidget);
   });
 
-  testWidgets('statistics opens with no entries', (tester) async {
+  testWidgets('library sorts books by shelf and opens a book', (tester) async {
     await skipOpenPrompts();
+    final int book = await addBook();
+    await readOn(
+      book,
+      daysAgo(1),
+      summary: 'Fear is the mind-killer.',
+      hook: 'Who betrayed the Atreides?',
+    );
+    await readOn(book, daysAgo(0));
+    final Database db = await databaseServices.database;
+    await db.insert('books', {
+      'title': 'The Left Hand of Darkness',
+      'author': 'Ursula K. Le Guin',
+      'coverUrl': '',
+      'totalPages': 304,
+      'status': 'to-read',
+    });
+    await databaseServices.setSetting(
+      'recallShown',
+      HabitServices.dateKey(DateTime.now()),
+    );
 
     await startApp(tester);
-    await tester.tap(find.byIcon(Symbols.bar_chart));
+    await tester.tap(find.text('Library'));
     await settle(tester);
 
-    expect(find.textContaining('No reading progress yet.'), findsOneWidget);
-    await screenshot(tester, '09-statistics-empty');
+    expect(find.text('Dune'), findsOneWidget);
+    expect(find.text('The Left Hand of Darkness'), findsNothing);
+    await screenshot(tester, '12-library');
+
+    await tester.tap(find.text('Dune'));
+    await settle(tester);
+
+    expect(find.text('Read now'), findsOneWidget);
+    expect(find.text('Fear is the mind-killer.'), findsOneWidget);
+    expect(find.text('Wanted to know: Who betrayed the Atreides?'), findsOne);
+    await screenshot(tester, '13-book-detail');
     await goHome(tester);
   });
 
-  testWidgets('statistics shows streaks, reading time and habit strength', (
+  testWidgets('stats explains itself with no entries', (tester) async {
+    await skipOpenPrompts();
+
+    await startApp(tester);
+    await tester.tap(find.text('Stats'));
+    await settle(tester);
+
+    expect(find.textContaining('No reading yet.'), findsOneWidget);
+    await screenshot(tester, '14-stats-empty');
+    await goHome(tester);
+  });
+
+  testWidgets('stats shows the week, all time and habit strength', (
     tester,
   ) async {
     await skipOpenPrompts();
@@ -307,18 +379,19 @@ void main() {
     await databaseServices.addHabitCheck(21, daysAgo(0).toIso8601String());
 
     await startApp(tester);
-    await tester.tap(find.byIcon(Symbols.bar_chart));
+    await tester.tap(find.text('Stats'));
     await settle(tester);
 
-    expect(find.text('Longest Streak'), findsOneWidget);
-    await screenshot(tester, '10-statistics');
+    expect(find.text('7 of 7'), findsOneWidget);
+    expect(find.text('Longest streak'), findsOneWidget);
+    await screenshot(tester, '15-stats');
 
     await tester.scrollUntilVisible(
-      find.text('Habit Strength'),
+      find.textContaining('28 means it happens without thinking'),
       300,
       scrollable: find.byType(Scrollable).first,
     );
-    await screenshot(tester, '11-statistics-habit-strength');
+    await screenshot(tester, '16-stats-habit-strength');
     await goHome(tester);
   });
 
@@ -336,8 +409,8 @@ void main() {
     await settle(tester);
 
     expect(find.text('You read on 7 of 7 days'), findsOneWidget);
-    expect(find.text('How automatic is it?'), findsOneWidget);
-    await screenshot(tester, '12-weekly-review');
+    expect(find.text('HOW AUTOMATIC IS IT?'), findsOneWidget);
+    await screenshot(tester, '17-weekly-review');
 
     await tester.scrollUntilVisible(
       find.text('Start the new week'),
@@ -354,13 +427,13 @@ void main() {
     await skipOpenPrompts();
 
     await startApp(tester);
-    await tester.tap(find.byIcon(Symbols.settings));
+    await tester.tap(find.byTooltip('Settings'));
     await settle(tester);
     await tester.tap(find.text('20 min'));
     await settle(tester);
 
     expect(await databaseServices.getSetting('dailyGoalMinutes'), '20');
-    await screenshot(tester, '13-settings');
+    await screenshot(tester, '18-settings');
     await goHome(tester);
     expect(find.text('0 of 20 min today'), findsOneWidget);
   });
@@ -373,13 +446,16 @@ void main() {
     await startApp(tester);
 
     expect(find.text('Still into Dune?'), findsOneWidget);
-    await screenshot(tester, '14-stale-book');
+    await screenshot(tester, '19-stale-book');
 
     await tester.tap(find.text('Drop it'));
     await settle(tester);
 
     expect((await databaseServices.getBook(book))?.abandonedAt, isNotNull);
-    expect(find.text('No books currently being read.'), findsOneWidget);
+    await tester.tap(find.text('Library'));
+    await settle(tester);
+    expect(find.textContaining('Nothing in progress.'), findsOneWidget);
+    await goHome(tester);
   });
 
   testWidgets('yesterday\'s note comes back as a recall prompt', (
@@ -392,13 +468,13 @@ void main() {
     await startApp(tester);
 
     expect(find.text('What do you remember?'), findsOneWidget);
-    await screenshot(tester, '15-recall-prompt');
+    await screenshot(tester, '20-recall-prompt');
 
     await tester.tap(find.text('Show my note'));
     await settle(tester);
 
     expect(find.text('Fear is the mind-killer.'), findsOneWidget);
-    await screenshot(tester, '16-recall-answer');
+    await screenshot(tester, '21-recall-answer');
 
     await tester.tap(find.text('Got it'));
     await settle(tester);

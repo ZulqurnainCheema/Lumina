@@ -670,6 +670,23 @@ class DatabaseServices {
     };
   }
 
+  Future<Map<String, int>> getMinutesByDate(String from) async {
+    final Database db = await database;
+    final List<Map<String, dynamic>> rows = await db.rawQuery(
+      '''
+      SELECT date(createdAt) as day, SUM(durationSeconds) as seconds
+      FROM entries
+      WHERE createdAt IS NOT NULL AND date(createdAt) >= ?
+      GROUP BY date(createdAt)
+      ''',
+      [from],
+    );
+    return {
+      for (final Map<String, dynamic> row in rows)
+        row['day'] as String: ((row['seconds'] as num?)?.toInt() ?? 0) ~/ 60,
+    };
+  }
+
   Future<int?> getBestReadingHour() async {
     final Database db = await database;
     final List<Map<String, dynamic>> rows = await db.rawQuery('''

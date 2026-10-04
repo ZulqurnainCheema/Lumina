@@ -5,6 +5,7 @@ import 'package:lumina/services/habit_services.dart';
 import 'package:lumina/services/home_widget_service.dart';
 import 'package:lumina/services/notifications_center.dart';
 import 'package:lumina/theme.dart';
+import 'package:lumina/widgets/section_header.dart';
 
 class Settings extends StatefulWidget {
   const Settings({super.key});
@@ -55,18 +56,36 @@ class _SettingsState extends State<Settings> {
     await NotificationsCenter.instance.refresh();
   }
 
+  Widget _buildLink({
+    required String title,
+    required String subtitle,
+    required String route,
+  }) {
+    return ListTile(
+      contentPadding: EdgeInsets.zero,
+      title: Text(title),
+      subtitle: Text(subtitle),
+      trailing: const Icon(Icons.chevron_right),
+      onTap: () => GoRouter.of(context).push(route),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final TextTheme textTheme = Theme.of(context).textTheme;
+    final bool remindersSupported = NotificationsCenter.instance.supported;
     return Scaffold(
-      appBar: AppBar(title: const Text('Settings')),
+      appBar: AppBar(),
       body: ListView(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
         children: [
-          Text('Daily goal', style: textTheme.titleLarge),
-          const SizedBox(height: 6),
+          Text('Settings', style: textTheme.displayLarge),
+          const SizedBox(height: 28),
+          const SectionHeader(label: 'Daily goal', researchKey: 'freeze'),
+          const SizedBox(height: 4),
           Text(
-            'Keep it small. Any reading keeps your streak; the goal only fills the ring.',
+            'Keep it small. Any reading keeps your streak; the goal only '
+            'fills the ring.',
             style: textTheme.bodySmall,
           ),
           const SizedBox(height: 12),
@@ -84,39 +103,46 @@ class _SettingsState extends State<Settings> {
             ],
           ),
           const SizedBox(height: 28),
-          ListTile(
-            contentPadding: EdgeInsets.zero,
-            title: const Text('Reading plan'),
-            subtitle: const Text('When, where, and what to do when it slips'),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () => GoRouter.of(context).push('/plan'),
-          ),
-          ListTile(
-            contentPadding: EdgeInsets.zero,
-            title: const Text('Weekly review'),
-            subtitle: const Text('Last 7 days and how automatic reading feels'),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () => GoRouter.of(context).push('/review'),
-          ),
+          const SectionHeader(label: 'Reminder', researchKey: 'oneReminder'),
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
             title: const Text('Daily reminder'),
             subtitle: Text(
-              NotificationsCenter.instance.supported
+              remindersSupported
                   ? 'One a day at most, only if you have not read yet'
                   : 'Reminders only run on the phone',
             ),
             value: _remindersEnabled,
             activeThumbColor: LuminaColors.accent,
-            onChanged: NotificationsCenter.instance.supported
-                ? _setReminders
-                : null,
+            onChanged: remindersSupported ? _setReminders : null,
           ),
-          if (NotificationsCenter.instance.supported)
-            TextButton(
-              onPressed: () => NotificationsCenter.instance.showTest(),
-              child: const Text('Send a test reminder'),
+          if (remindersSupported)
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton(
+                onPressed: () => NotificationsCenter.instance.showTest(),
+                child: const Text('Send a test reminder'),
+              ),
             ),
+          const SizedBox(height: 20),
+          const SectionHeader(label: 'Your routine'),
+          _buildLink(
+            title: 'Reading plan',
+            subtitle: 'When, where, and what to do when it slips',
+            route: '/plan',
+          ),
+          _buildLink(
+            title: 'Weekly review',
+            subtitle: 'Last 7 days and how automatic reading feels',
+            route: '/review',
+          ),
+          const SizedBox(height: 20),
+          const SectionHeader(label: 'About'),
+          _buildLink(
+            title: 'The science',
+            subtitle: 'The studies each part of Lumina is built on',
+            route: '/science',
+          ),
         ],
       ),
     );

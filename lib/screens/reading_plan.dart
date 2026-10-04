@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:lumina/services/database_services.dart';
 import 'package:lumina/theme.dart';
+import 'package:lumina/widgets/section_header.dart';
 
 class ReadingPlan extends StatefulWidget {
   const ReadingPlan({super.key});
@@ -59,23 +60,28 @@ class _ReadingPlanState extends State<ReadingPlan> {
   Widget build(BuildContext context) {
     final TextTheme textTheme = Theme.of(context).textTheme;
     return Scaffold(
-      appBar: AppBar(title: const Text('Reading Plan')),
-      body: Center(
+      appBar: AppBar(),
+      body: Align(
+        alignment: Alignment.topCenter,
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24),
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
           child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 400),
+            constraints: const BoxConstraints(maxWidth: 480),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('When will you read?', style: textTheme.headlineMedium),
-                const SizedBox(height: 10),
+                Text('When will you read?', style: textTheme.displayLarge),
+                const SizedBox(height: 8),
                 Text(
-                  'Habits attach to a moment, not a clock time. Pick something '
-                  'you already do every day and read right after it.',
-                  style: textTheme.bodySmall,
+                  'Pick something you already do every day and read right '
+                  'after it.',
+                  style: textTheme.bodyMedium?.copyWith(
+                    color: LuminaColors.textSecondary,
+                  ),
                 ),
-                const SizedBox(height: 24),
+                const SizedBox(height: 28),
+                const SectionHeader(label: 'Your moment', researchKey: 'cue'),
+                const SizedBox(height: 8),
                 TextField(
                   controller: _cueController,
                   style: _fieldTextStyle,
@@ -84,7 +90,7 @@ class _ReadingPlanState extends State<ReadingPlan> {
                     hintText: 'finish dinner, get into bed, make coffee',
                   ),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 12),
                 TextField(
                   controller: _placeController,
                   style: _fieldTextStyle,
@@ -94,8 +100,11 @@ class _ReadingPlanState extends State<ReadingPlan> {
                   ),
                 ),
                 const SizedBox(height: 28),
-                Text('What usually stops you?', style: textTheme.titleLarge),
-                const SizedBox(height: 16),
+                const SectionHeader(
+                  label: 'When something gets in the way',
+                  researchKey: 'plan',
+                ),
+                const SizedBox(height: 8),
                 TextField(
                   controller: _obstacleController,
                   style: _fieldTextStyle,
@@ -104,7 +113,7 @@ class _ReadingPlanState extends State<ReadingPlan> {
                     hintText: 'I pick up my phone in bed',
                   ),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 12),
                 TextField(
                   controller: _responseController,
                   style: _fieldTextStyle,
@@ -113,7 +122,7 @@ class _ReadingPlanState extends State<ReadingPlan> {
                     hintText: 'put it on the desk and open the book',
                   ),
                 ),
-                const SizedBox(height: 28),
+                const SizedBox(height: 32),
                 ElevatedButton(
                   onPressed: _savePlan,
                   child: const Text('Save plan'),

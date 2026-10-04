@@ -119,170 +119,140 @@ class _AddbooksState extends State<Addbooks> {
 
   @override
   Widget build(BuildContext context) {
+    final TextTheme textTheme = Theme.of(context).textTheme;
     return Scaffold(
-      appBar: AppBar(title: Text('Add Books')),
-      body: Center(
+      appBar: AppBar(),
+      body: Align(
+        alignment: Alignment.topCenter,
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24),
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
           child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 400),
-            child: Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(
-                border: Border.all(color: LuminaColors.accent),
-                borderRadius: BorderRadius.circular(12),
-                boxShadow: [
-                  BoxShadow(
-                    color: LuminaColors.accent.withAlpha(20),
-                    blurRadius: 12,
-                    offset: const Offset(0, 6),
-                  ),
-                ],
-              ),
+            constraints: const BoxConstraints(maxWidth: 480),
+            child: Form(
+              key: _formKey,
               child: Column(
-                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  Text('Add a book', style: textTheme.displayLarge),
+                  SizedBox(height: 8),
                   Text(
-                    'Add New Books',
-                    style: Theme.of(context).textTheme.headlineLarge,
+                    'The page count lets Lumina tell you how much is left.',
+                    style: textTheme.bodySmall,
                   ),
-                  SizedBox(height: 20),
-                  Text(
-                    'Expand your Digital Library',
-                    style: Theme.of(context).textTheme.labelMedium,
+                  SizedBox(height: 24),
+                  TextFormField(
+                    controller: _titleController,
+                    style: _fieldTextStyle,
+                    decoration: InputDecoration(labelText: 'Title'),
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Please enter a title for the book';
+                      }
+                      return null;
+                    },
                   ),
-                  SizedBox(height: 30),
-                  Form(
-                    key: _formKey,
-                    child: Column(
-                      children: [
-                        TextFormField(
-                          controller: _titleController,
-                          style: _fieldTextStyle,
-                          decoration: InputDecoration(
-                            labelText: 'Title',
-                            hintText: 'Enter the title of the book',
-                          ),
-                          validator: (value) {
-                            if (value == null || value.isEmpty) {
-                              return 'Please enter a title for the book';
-                            }
-                            return null;
-                          },
-                        ),
-                        SizedBox(height: 20),
-                        TextFormField(
-                          controller: _authorController,
-                          style: _fieldTextStyle,
-                          decoration: InputDecoration(
-                            labelText: 'Author',
-                            hintText: 'Enter the author of the book',
-                          ),
-                          validator: (value) {
-                            if (value == null || value.isEmpty) {
-                              return 'Please enter the author of the book';
-                            }
-                            return null;
-                          },
-                        ),
-                        SizedBox(height: 20),
-                        TextFormField(
-                          controller: _pagesController,
-                          style: _fieldTextStyle,
-                          decoration: InputDecoration(
-                            labelText: 'Total Pages',
-                            hintText: 'Enter the total number of pages',
-                          ),
-                          keyboardType: TextInputType.number,
-                          validator: (value) {
-                            if (value == null || value.isEmpty) {
-                              return 'Please enter the total number of pages';
-                            }
-                            if (int.tryParse(value) == null) {
-                              return 'Please enter a valid number';
-                            }
-                            return null;
-                          },
-                        ),
-                        SizedBox(height: 30),
-
-                        TextButton(
-                          onPressed: fetchCover,
-                          style: Theme.of(context).textButtonTheme.style,
-                          child: Text(
-                            _isFetchingCover
-                                ? 'Fetching Cover...'
-                                : 'Fetch Cover',
-                          ),
-                        ),
-                        SizedBox(height: 24),
-                        Container(
-                          decoration: BoxDecoration(
-                            border: Border.all(
-                              color: LuminaColors.accent,
-                              width: 2,
+                  SizedBox(height: 12),
+                  TextFormField(
+                    controller: _authorController,
+                    style: _fieldTextStyle,
+                    decoration: InputDecoration(labelText: 'Author'),
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Please enter the author of the book';
+                      }
+                      return null;
+                    },
+                  ),
+                  SizedBox(height: 12),
+                  TextFormField(
+                    controller: _pagesController,
+                    style: _fieldTextStyle,
+                    decoration: InputDecoration(labelText: 'Total pages'),
+                    keyboardType: TextInputType.number,
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Please enter the total number of pages';
+                      }
+                      if (int.tryParse(value) == null) {
+                        return 'Please enter a valid number';
+                      }
+                      return null;
+                    },
+                  ),
+                  SizedBox(height: 24),
+                  Row(
+                    children: [
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: Stack(
+                          alignment: Alignment.center,
+                          children: [
+                            Image.network(
+                              _coverUrl,
+                              height: 120,
+                              width: 80,
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error, stackTrace) {
+                                return Image.asset(
+                                  'assets/book.jpg',
+                                  height: 120,
+                                  width: 80,
+                                  fit: BoxFit.cover,
+                                );
+                              },
                             ),
-                            borderRadius: BorderRadius.circular(8),
-                            boxShadow: [
-                              BoxShadow(
-                                color: LuminaColors.accent.withAlpha(30),
-                                blurRadius: 8,
-                                offset: Offset(0, 4),
-                              ),
-                            ],
-                          ),
-                          padding: EdgeInsets.all(8),
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(6),
-                            child: Stack(
-                              alignment: Alignment.center,
-                              children: [
-                                Image.network(
-                                  _coverUrl,
-                                  height: 220,
-                                  width: 140,
-                                  fit: BoxFit.contain,
-                                  errorBuilder: (context, error, stackTrace) {
-                                    return Image.asset(
-                                      'assets/book.jpg',
-                                      height: 220,
-                                      width: 140,
-                                      fit: BoxFit.contain,
-                                    );
-                                  },
-                                ),
-                                if (_isFetchingCover)
-                                  Positioned.fill(
-                                    child: DecoratedBox(
-                                      decoration: BoxDecoration(
-                                        color: LuminaColors.background
-                                            .withAlpha(210),
-                                      ),
-                                      child: Center(
-                                        child: const SizedBox(
-                                          width: 28,
-                                          height: 28,
-                                          child: CircularProgressIndicator(
-                                            strokeWidth: 3,
-                                          ),
-                                        ),
+                            if (_isFetchingCover)
+                              Positioned.fill(
+                                child: DecoratedBox(
+                                  decoration: BoxDecoration(
+                                    color: LuminaColors.background.withAlpha(
+                                      210,
+                                    ),
+                                  ),
+                                  child: Center(
+                                    child: const SizedBox(
+                                      width: 24,
+                                      height: 24,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 3,
                                       ),
                                     ),
                                   ),
-                              ],
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                      SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('Cover', style: textTheme.titleMedium),
+                            Text(
+                              'Looked up from the title and author.',
+                              style: textTheme.bodySmall,
                             ),
-                          ),
+                            SizedBox(height: 10),
+                            OutlinedButton(
+                              onPressed: fetchCover,
+                              child: Text(
+                                _isFetchingCover
+                                    ? 'Finding cover...'
+                                    : 'Find cover',
+                              ),
+                            ),
+                          ],
                         ),
-                        SizedBox(height: 50),
-                        ElevatedButton(
-                          onPressed: () async {
-                            await _submit(context);
-                          },
-                          child: Text('Add Book'),
-                        ),
-                      ],
-                    ),
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: 32),
+                  ElevatedButton(
+                    onPressed: () async {
+                      await _submit(context);
+                    },
+                    child: Text('Add book'),
                   ),
                 ],
               ),

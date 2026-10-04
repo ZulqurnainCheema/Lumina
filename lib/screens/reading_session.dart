@@ -212,7 +212,7 @@ class _ReadingSessionState extends State<ReadingSession> {
                   style: textTheme.bodySmall,
                 ),
                 const Spacer(),
-                TextButton(
+                OutlinedButton(
                   onPressed: _togglePause,
                   child: Text(_running ? 'Pause' : 'Resume'),
                 ),

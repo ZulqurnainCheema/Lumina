@@ -1,14 +1,14 @@
-# Lumina habit engine: tests and screenshots
+# Lumina: tests and screenshots
 
 Every UI test below drives the real app on Linux at phone size (412 × 892) against an in-memory database, and saves a screenshot of what it checked. The screenshots in this file are produced by the tests themselves, so re-running the tests refreshes them.
 
 ## Running the tests
 
 ```bash
-# Logic: streaks, freezes, repair, migration, reminders (17 tests, about 1 second)
+# Logic: streaks, freezes, repair, migration, reminders, research entries (19 tests, about 1 second)
 flutter test
 
-# UI flows, one or more screenshots per test (11 tests, about 90 seconds, needs a display)
+# UI flows, one or more screenshots per test (13 tests, about 2 minutes, needs a display)
 flutter test integration_test/habit_flow_test.dart -d linux
 ```
 
@@ -24,6 +24,12 @@ These need a real Android phone and have only been compiled, not exercised:
 
 The reminder *content and timing rules* are unit tested (see the last table).
 
+## How the screens are built
+
+- **One title per screen**, one filled green button for the main action, everything else outlined or plain.
+- **Three text levels**: white for what you read, grey for supporting text, small grey capitals for section labels. Green is only the main action and live progress; amber is only the streak.
+- **A "Why?" chip** next to each mechanic opens the study it is built on. The full list is in Settings → The science. The text lives in `lib/research.dart`.
+
 ---
 
 ## UI tests
@@ -32,117 +38,137 @@ The reminder *content and timing rules* are unit tested (see the last table).
 
 `first run asks for a reading plan`
 
-On a fresh install the app opens the plan screen once. The test fills in the cue, the place and one obstacle plan, saves, and checks the plan line appears on the home card.
+On a fresh install the app opens the plan screen once. The test fills in the moment, the place and one obstacle plan, saves, and checks the plan line appears on Today, along with the empty state that tells you to add a book.
 
-Why it exists: if-then plans roughly double follow-through (Gollwitzer & Sheeran 2006, d = 0.65), and habits attach to a cue rather than a clock time (Wood & Neal 2007).
+Built on: Gollwitzer & Sheeran (2006) on if-then plans; Wood & Neal (2007) on habits attaching to a context.
 
-| Plan screen | Plan shown on home |
+| Plan screen | Today with no book yet |
 |---|---|
-| ![Reading plan](screenshots/01-reading-plan.png) | ![Plan on home](screenshots/02-plan-on-home.png) |
+| ![Reading plan](screenshots/01-reading-plan.png) | ![Today, empty](screenshots/02-today-empty.png) |
 
-### 2. Today card shows the streak, the hook and the time left
+### 2. Today shows the streak, the open question and the time left
 
-`today card shows the streak, the hook and the time left`
+`today shows the streak, the open question and the time left`
 
-With nine days of reading and nothing logged today, the card shows a 9 day streak, one banked freeze (the snowflake), the "One page keeps the streak" nudge, the question you left yourself last time, and pages and time left at your own pace.
+Nine days of reading, nothing logged today. Checks the streak, the banked freeze in words, the "One page keeps the streak" line, the question you left yourself, pages and time left, and that there is exactly one filled button on the screen.
 
-Why it exists: an intact visible streak drives the next session (Silverman & Barasch 2023); your own open question pulls you back (Loewenstein 1994); visible distance to the end speeds you up (Kivetz 2006).
+Built on: Silverman & Barasch (2023) on streaks; Loewenstein (1994) on curiosity; Kivetz, Urminsky & Zheng (2006) on speeding up near the end.
 
-![Today card](screenshots/03-today-card.png)
+![Today](screenshots/03-today.png)
 
-### 3. A reading session is timed, logged and hits a milestone
+### 3. A why chip opens the finding and its source
+
+`a why chip opens the finding and its source`
+
+Taps the "Why?" chip on the streak card and checks the sheet shows the finding and the citation. Then follows "See all the science", and opens an entry in the "leaves out on purpose" group.
+
+| Why sheet | The science | Left out on purpose |
+|---|---|---|
+| ![Why sheet](screenshots/04-why-sheet.png) | ![Science](screenshots/05-science.png) | ![Left out](screenshots/06-science-left-out.png) |
+
+### 4. A reading session is timed, logged and hits a milestone
 
 `a reading session is timed, logged and hits a milestone`
 
-Taps Continue reading, lets the timer run, finishes, fills in the wrap-up (progress, one thing worth keeping, what you want to find out next, how absorbed you were) and saves. Because this is the seventh day in a row, the milestone appears. The test then checks the entry stored a duration and the absorption rating, the session was cleared, and the home card shows the new hook.
+Taps Continue reading, lets the timer run, finishes, fills in the wrap-up and saves. Because this is the seventh day in a row, the milestone sheet appears. The test then checks the entry stored a duration and the absorption rating, the session was cleared, and Today shows the new open question.
 
-Why it exists: recording progress is one of the best-supported mechanisms (Harkin 2016, d = 0.40); writing one recalled line beats rereading (Roediger & Karpicke 2006).
+Built on: Harkin et al. (2016) on recording progress; Roediger & Karpicke (2006) on recalling instead of rereading.
 
 | Session | Wrap-up | Milestone |
 |---|---|---|
-| ![Reading session](screenshots/04-reading-session.png) | ![Wrap-up](screenshots/05-session-wrap-up.png) | ![Streak milestone](screenshots/06-streak-milestone.png) |
+| ![Reading session](screenshots/07-reading-session.png) | ![Wrap-up](screenshots/08-session-wrap-up.png) | ![Streak milestone](screenshots/09-streak-milestone.png) |
 
-### 4. A missed day offers a streak repair
+### 5. A missed day offers a streak repair
 
 `a missed day offers a streak repair`
 
-Three days read, yesterday missed, no freeze banked. The streak shows 0 but the card offers to bring the 3 day streak back for double the daily goal today.
+Three days read, yesterday missed, no freeze banked. The streak shows 0 and the card offers to bring the 3 day streak back for double the daily goal today.
 
-Why it exists: a broken streak demotivates far more than the missed day itself, and being able to repair it removes most of that drop (Silverman & Barasch 2023).
+Built on: Silverman & Barasch (2023): being able to repair a streak removes much of the drop a break causes.
 
-![Streak repair](screenshots/07-streak-repair.png)
+![Streak repair](screenshots/10-streak-repair.png)
 
-### 5. Coming back after a gap is celebrated
+### 6. Coming back after a gap is celebrated
 
 `coming back after a gap is celebrated`
 
-Last read five days ago. The test starts a session from the bottom bar, logs it, and checks the comeback moment appears and the streak restarts at 1.
+Last read five days ago. The test starts a session, logs it, and checks the comeback sheet appears and the streak restarts at 1.
 
-Why it exists: in a 61,000-person study of 54 programmes, rewarding the return after a miss was the single most effective (Milkman et al. 2021, +27%).
+Built on: Milkman et al. (2021): of 54 programmes tested on 61,293 people, rewarding the return after a miss worked best.
 
-![Comeback](screenshots/08-comeback.png)
+![Comeback](screenshots/11-comeback.png)
 
-### 6. Statistics opens with no entries
+### 7. Library sorts books by shelf and opens a book
 
-`statistics opens with no entries`
+`library sorts books by shelf and opens a book`
 
-Opens statistics on an empty database. This used to crash because the chart read the first data point before checking for an empty list.
+Two books on different shelves. Checks only the one in progress shows under Reading, opens it, and checks the book page shows the title, the sessions with their note and open question, and the Read now button.
 
-![Statistics, empty](screenshots/09-statistics-empty.png)
-
-### 7. Statistics shows streaks, reading time and habit strength
-
-`statistics shows streaks, reading time and habit strength`
-
-Ten days of reading plus three automaticity check-ins. Checks the new tiles (longest streak, 7-day time, usual hour, lifetime pages) and scrolls to the habit strength chart.
-
-Why it exists: the habit strength line is your own score on the 4-item automaticity index (Gardner 2012). It replaces the "66 days" myth with a real curve; habit formation actually takes 18 to 254 days (Lally 2010).
-
-| Tiles | Habit strength |
+| Library | Book |
 |---|---|
-| ![Statistics](screenshots/10-statistics.png) | ![Habit strength](screenshots/11-statistics-habit-strength.png) |
+| ![Library](screenshots/12-library.png) | ![Book detail](screenshots/13-book-detail.png) |
 
-### 8. Weekly review records how automatic reading feels
+### 8. Stats explains itself with no entries
+
+`stats explains itself with no entries`
+
+Opens Stats on an empty database. This screen used to crash here; now it says what will appear.
+
+![Stats, empty](screenshots/14-stats-empty.png)
+
+### 9. Stats shows the week, all time and habit strength
+
+`stats shows the week, all time and habit strength`
+
+Ten days of reading plus three automaticity check-ins. Checks the week tiles, the all-time tiles, and scrolls to the habit strength chart.
+
+Built on: Gardner et al. (2012) for the four-question automaticity index; Lally et al. (2010) for the real 18 to 254 day range.
+
+| This week and all time | Habit strength |
+|---|---|
+| ![Stats](screenshots/15-stats.png) | ![Habit strength](screenshots/16-stats-habit-strength.png) |
+
+### 10. Weekly review records how automatic reading feels
 
 `weekly review records how automatic reading feels`
 
-Opens the review after a full week, checks the summary and the four automaticity questions, submits, and checks one check-in was stored.
+Opens the review after a full week, checks the summary and the four questions, submits, and checks one check-in was stored.
 
-Why it exists: the review is offered on Mondays and the 1st of the month, when people are most willing to restart (Dai, Milkman & Riis 2014).
+Built on: Dai, Milkman & Riis (2014) on fresh starts at the beginning of a week or month.
 
-![Weekly review](screenshots/12-weekly-review.png)
+![Weekly review](screenshots/17-weekly-review.png)
 
-### 9. Settings changes the daily goal
+### 11. Settings changes the daily goal
 
 `settings changes the daily goal`
 
-Picks 20 minutes, checks it is stored, and checks the home card now reads "0 of 20 min today".
+Opens Settings from the gear on Today, picks 20 minutes, checks it is stored, and checks Today now reads "0 of 20 min today".
 
-Why it exists: the goal only fills the ring. Any reading keeps the streak, because separating the two kept more people going in Duolingo's experiments (+3.3% day-14 retention).
+Built on: Duolingo's own experiments (company-reported, not peer-reviewed) on keeping the goal separate from the streak.
 
-![Settings](screenshots/13-settings.png)
+![Settings](screenshots/18-settings.png)
 
-### 10. A book untouched for a week can be dropped
+### 12. A book untouched for a week can be dropped
 
 `a book untouched for a week can be dropped`
 
-A book last opened ten days ago triggers the prompt. The test taps Drop it and checks the book is marked abandoned and leaves the Reading tab.
+A book last opened ten days ago triggers the sheet. The test taps Drop it, checks the book is marked paused, and checks the Reading shelf now explains that nothing is in progress.
 
-Why it exists: a book you are not enjoying stalls the whole habit. Dropping it keeps the pages you read.
+This one is a design choice; the app says so, and cites no study.
 
-![Stale book](screenshots/14-stale-book.png)
+![Stale book](screenshots/19-stale-book.png)
 
-### 11. Yesterday's note comes back as a recall prompt
+### 13. Yesterday's note comes back as a recall prompt
 
 `yesterday's note comes back as a recall prompt`
 
 A note written yesterday is offered as a recall question first, then revealed. Notes resurface 1, 7 and 30 days after they were written.
 
-Why it exists: trying to recall before looking is what makes it stick (Roediger & Karpicke 2006: 61% versus 40% retained after a week).
+Built on: Roediger & Karpicke (2006): 61% retained after a week when recalling, 40% when rereading.
 
 | Prompt | Your note |
 |---|---|
-| ![Recall prompt](screenshots/15-recall-prompt.png) | ![Recall answer](screenshots/16-recall-answer.png) |
+| ![Recall prompt](screenshots/20-recall-prompt.png) | ![Recall answer](screenshots/21-recall-answer.png) |
 
 ---
 
@@ -169,3 +195,5 @@ Why it exists: trying to recall before looking is what makes it stick (Roediger 
 | reminders | fire a little before the usual reading time | 15 minutes before your median entry time; 20:00 with no history |
 | reminders | count how many in a row were ignored | Used to drop to every other day after five ignored |
 | reminders | are written from the reader's own notes | Your hook, pages left, streak and plan, in rotation |
+| research | every why chip in the app points at a real entry | No "Why?" chip can open an empty sheet |
+| research | every entry cites a source or says it has none | No finding is shown without a citation or an explicit "no study" note |

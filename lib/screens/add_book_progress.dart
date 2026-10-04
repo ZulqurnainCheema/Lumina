@@ -6,6 +6,7 @@ import 'package:lumina/services/notifications_center.dart';
 import 'package:lumina/theme.dart';
 import 'package:lumina/services/database_services.dart';
 import 'package:lumina/widgets/celebration.dart';
+import 'package:lumina/widgets/section_header.dart';
 
 class AddBookProgress extends StatefulWidget {
   const AddBookProgress({super.key, required this.id, this.durationSeconds});
@@ -110,143 +111,144 @@ class _AddBookProgressState extends State<AddBookProgress> {
 
   @override
   Widget build(BuildContext context) {
+    final TextTheme textTheme = Theme.of(context).textTheme;
     return Scaffold(
-      appBar: AppBar(title: Text("Add Book Progress")),
-      body: Center(
+      appBar: AppBar(),
+      body: Align(
+        alignment: Alignment.topCenter,
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24),
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
           child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 400),
-            child: Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(
-                border: Border.all(color: LuminaColors.accent),
-                borderRadius: BorderRadius.circular(12),
-                boxShadow: [
-                  BoxShadow(
-                    color: LuminaColors.accent.withAlpha(20),
-                    blurRadius: 12,
-                    offset: const Offset(0, 6),
-                  ),
-                ],
-              ),
+            constraints: const BoxConstraints(maxWidth: 480),
+            child: Form(
+              key: _formKey,
               child: Column(
-                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    _hasSession
-                        ? (widget.durationSeconds! < 60
-                              ? 'You read for under a minute'
-                              : 'You read for ${HabitServices.formatDuration(widget.durationSeconds!)}')
-                        : 'Add Book Progress',
-                    style: Theme.of(context).textTheme.headlineLarge,
+                    !_hasSession
+                        ? 'Log progress'
+                        : widget.durationSeconds! < 60
+                        ? 'You read for under a minute'
+                        : 'You read for ${HabitServices.formatDuration(widget.durationSeconds!)}',
+                    style: textTheme.displayLarge,
                   ),
-                  SizedBox(height: 20),
+                  SizedBox(height: 8),
                   Text(
-                    'Log how far you got. The two notes are optional and take ten seconds.',
-                    style: Theme.of(context).textTheme.labelMedium,
+                    'Any amount keeps your streak. The two notes are optional.',
+                    style: textTheme.bodyMedium?.copyWith(
+                      color: LuminaColors.textSecondary,
+                    ),
                   ),
-                  SizedBox(height: 30),
-                  Row(
-                    children: [
-                      Text('Track by Pages'),
-                      Switch(
-                        value: _isbypages,
-                        onChanged: (value) {
-                          setState(() {
-                            _isbypages = value;
-                          });
-                        },
+                  SizedBox(height: 28),
+                  SectionHeader(
+                    label: 'How far did you get?',
+                    researchKey: 'tracking',
+                  ),
+                  SizedBox(height: 8),
+                  SizedBox(
+                    width: double.infinity,
+                    child: SegmentedButton<bool>(
+                      showSelectedIcon: false,
+                      segments: const [
+                        ButtonSegment<bool>(
+                          value: false,
+                          label: Text('Percent'),
+                        ),
+                        ButtonSegment<bool>(value: true, label: Text('Pages')),
+                      ],
+                      selected: {_isbypages},
+                      onSelectionChanged: (Set<bool> selection) {
+                        setState(() {
+                          _isbypages = selection.first;
+                        });
+                      },
+                    ),
+                  ),
+                  SizedBox(height: 12),
+                  if (_isbypages)
+                    TextFormField(
+                      controller: _pagesController,
+                      style: _fieldTextStyle,
+                      decoration: InputDecoration(
+                        labelText: 'Pages read',
+                        hintText: 'Pages you read this session',
                       ),
+                      keyboardType: TextInputType.number,
+                      validator: (value) => _validateNumber(value, max: 5000),
+                    )
+                  else
+                    TextFormField(
+                      controller: _percentageReadController,
+                      style: _fieldTextStyle,
+                      decoration: InputDecoration(
+                        labelText: 'Percent of the book',
+                        hintText: 'How much of the book this session covered',
+                      ),
+                      keyboardType: TextInputType.number,
+                      validator: (value) => _validateNumber(value, max: 100),
+                    ),
+                  SizedBox(height: 28),
+                  SectionHeader(label: 'Keep one thing', researchKey: 'recall'),
+                  SizedBox(height: 8),
+                  TextFormField(
+                    controller: _summaryController,
+                    style: _fieldTextStyle,
+                    decoration: InputDecoration(
+                      labelText: 'One line, from memory',
+                      hintText: 'An idea, a line, or what just happened',
+                    ),
+                    keyboardType: TextInputType.multiline,
+                    maxLines: 3,
+                  ),
+                  SizedBox(height: 28),
+                  SectionHeader(
+                    label: 'What do you want to find out next?',
+                    researchKey: 'hook',
+                  ),
+                  SizedBox(height: 8),
+                  TextFormField(
+                    controller: _hookController,
+                    style: _fieldTextStyle,
+                    decoration: InputDecoration(
+                      labelText: 'Your open question',
+                      hintText: 'Lumina shows this back to you tomorrow',
+                    ),
+                    maxLines: 2,
+                  ),
+                  SizedBox(height: 28),
+                  SectionHeader(label: 'How absorbed were you?'),
+                  SizedBox(height: 8),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      for (int level = 1; level <= 5; level++)
+                        ChoiceChip(
+                          label: Text('$level'),
+                          selected: _absorption == level,
+                          showCheckmark: false,
+                          onSelected: (selected) {
+                            setState(() {
+                              _absorption = selected ? level : null;
+                            });
+                          },
+                        ),
                     ],
                   ),
-                  SizedBox(height: 20),
-                  Form(
-                    key: _formKey,
-                    child: Column(
-                      children: [
-                        if (_isbypages) ...[
-                          TextFormField(
-                            controller: _pagesController,
-                            style: _fieldTextStyle,
-                            decoration: InputDecoration(
-                              labelText: 'Pages Read',
-                              hintText: 'Pages you read this session',
-                            ),
-                            keyboardType: TextInputType.number,
-                            validator: (value) =>
-                                _validateNumber(value, max: 5000),
-                          ),
-                          SizedBox(height: 20),
-                        ] else ...[
-                          TextFormField(
-                            controller: _percentageReadController,
-                            style: _fieldTextStyle,
-                            decoration: InputDecoration(
-                              labelText: 'Percentage Read',
-                              hintText: 'Percent of the book read this session',
-                            ),
-                            keyboardType: TextInputType.number,
-                            validator: (value) =>
-                                _validateNumber(value, max: 100),
-                          ),
-                          SizedBox(height: 20),
-                        ],
-                        TextFormField(
-                          controller: _summaryController,
-                          style: _fieldTextStyle,
-                          decoration: InputDecoration(
-                            labelText: 'One thing worth keeping',
-                            hintText: 'A line, an idea, or what just happened',
-                          ),
-                          keyboardType: TextInputType.multiline,
-                          maxLines: 4,
-                        ),
-                        SizedBox(height: 20),
-                        TextFormField(
-                          controller: _hookController,
-                          style: _fieldTextStyle,
-                          decoration: InputDecoration(
-                            labelText: 'What do you want to find out next?',
-                            hintText: 'Lumina shows this back to you tomorrow',
-                          ),
-                          maxLines: 2,
-                        ),
-                        SizedBox(height: 20),
-                        Align(
-                          alignment: Alignment.centerLeft,
-                          child: Text(
-                            'How lost in it were you?',
-                            style: Theme.of(context).textTheme.bodySmall,
-                          ),
-                        ),
-                        SizedBox(height: 8),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            for (int level = 1; level <= 5; level++)
-                              ChoiceChip(
-                                label: Text('$level'),
-                                selected: _absorption == level,
-                                showCheckmark: false,
-                                onSelected: (selected) {
-                                  setState(() {
-                                    _absorption = selected ? level : null;
-                                  });
-                                },
-                              ),
-                          ],
-                        ),
-                        SizedBox(height: 20),
-                        ElevatedButton(
-                          onPressed: () async {
-                            await SubmissionHandler();
-                          },
-                          child: Text('Save'),
-                        ),
-                      ],
-                    ),
+                  SizedBox(height: 6),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text('Distracted', style: textTheme.bodySmall),
+                      Text('Lost in it', style: textTheme.bodySmall),
+                    ],
+                  ),
+                  SizedBox(height: 32),
+                  ElevatedButton(
+                    onPressed: () async {
+                      await SubmissionHandler();
+                    },
+                    child: Text('Save'),
                   ),
                 ],
               ),

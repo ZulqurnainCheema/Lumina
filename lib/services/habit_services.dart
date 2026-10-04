@@ -54,11 +54,15 @@ class Celebration {
     required this.title,
     required this.body,
     this.big = false,
+    this.researchKey,
   });
 
   final String title;
   final String body;
   final bool big;
+
+  // Key into research.dart for the "Why this works" link.
+  final String? researchKey;
 }
 
 class HabitServices {
@@ -260,6 +264,7 @@ class HabitServices {
             'Life happened. Coming back after a gap is the part that builds '
             'the habit, and you just did it. Day 1 is yours.',
         big: true,
+        researchKey: 'comeback',
       );
     }
 
@@ -279,6 +284,7 @@ class HabitServices {
             ? 'You have ${streak.freezes} freeze${streak.freezes == 1 ? '' : 's'} banked for the day life gets in the way.'
             : 'Same book, same time tomorrow.',
         big: true,
+        researchKey: 'streak',
       );
     }
 

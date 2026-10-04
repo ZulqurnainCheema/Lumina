@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:lumina/services/database_services.dart';
 import 'package:lumina/services/habit_services.dart';
 import 'package:lumina/theme.dart';
+import 'package:lumina/widgets/section_header.dart';
+import 'package:lumina/widgets/stat_tile.dart';
 
 class WeeklyReview extends StatefulWidget {
   const WeeklyReview({super.key});
@@ -77,7 +79,7 @@ class _WeeklyReviewState extends State<WeeklyReview> {
   Widget build(BuildContext context) {
     final TextTheme textTheme = Theme.of(context).textTheme;
     return Scaffold(
-      appBar: AppBar(title: const Text('Weekly Review')),
+      appBar: AppBar(),
       body: FutureBuilder<_ReviewData>(
         future: _reviewFuture,
         builder: (context, snapshot) {
@@ -87,58 +89,77 @@ class _WeeklyReviewState extends State<WeeklyReview> {
           final _ReviewData review = snapshot.data!;
           final int days = review.week['days']!;
           return ListView(
-            padding: const EdgeInsets.all(24),
+            padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
             children: [
-              Text('Your last 7 days', style: textTheme.headlineMedium),
-              const SizedBox(height: 16),
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: LuminaDecorations.card,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'You read on $days of 7 days',
-                      style: textTheme.titleMedium,
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      '${HabitServices.formatDuration(review.week['seconds']!)} in total · '
-                      '${review.week['pages']} pages',
-                      style: textTheme.bodySmall,
-                    ),
-                    Text(
-                      'Longest session: ${HabitServices.formatDuration(review.week['longestSession']!)}',
-                      style: textTheme.bodySmall,
-                    ),
-                    if (review.bestHour != null)
-                      Text(
-                        'You usually read around ${review.bestHour}:00',
-                        style: textTheme.bodySmall,
-                      ),
-                  ],
-                ),
+              Text('Weekly review', style: textTheme.displayLarge),
+              const SizedBox(height: 28),
+              const SectionHeader(
+                label: 'Your last 7 days',
+                researchKey: 'freshStart',
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 8),
+              Text(
+                'You read on $days of 7 days',
+                style: textTheme.headlineMedium,
+              ),
+              const SizedBox(height: 6),
               Text(
                 days >= 5
                     ? 'That is a week most people never manage. Same plan again.'
                     : 'New week, clean slate. What one thing would make it easier to start?',
-                style: textTheme.bodyMedium,
+                style: textTheme.bodyMedium?.copyWith(
+                  color: LuminaColors.textSecondary,
+                ),
               ),
-              if (review.checkDue) ...[
-                const SizedBox(height: 28),
-                Text('How automatic is it?', style: textTheme.titleLarge),
-                const SizedBox(height: 6),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Expanded(
+                    child: StatTile(
+                      label: 'Time',
+                      value: HabitServices.formatDuration(
+                        review.week['seconds']!,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: StatTile(
+                      label: 'Pages',
+                      value: '${review.week['pages']}',
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: StatTile(
+                      label: 'Longest',
+                      value: HabitServices.formatDuration(
+                        review.week['longestSession']!,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              if (review.bestHour != null) ...[
+                const SizedBox(height: 10),
                 Text(
-                  'Reading is something... (1 disagree, 7 agree)',
+                  'You usually read around ${review.bestHour}:00.',
                   style: textTheme.bodySmall,
                 ),
+              ],
+              if (review.checkDue) ...[
+                const SizedBox(height: 32),
+                const SectionHeader(
+                  label: 'How automatic is it?',
+                  researchKey: 'habitStrength',
+                ),
+                const SizedBox(height: 4),
+                Text('Reading is something...', style: textTheme.titleLarge),
                 for (int index = 0; index < _automaticityItems.length; index++)
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const SizedBox(height: 14),
+                      const SizedBox(height: 18),
                       Text(
                         _automaticityItems[index],
                         style: textTheme.bodyMedium,
@@ -155,10 +176,20 @@ class _WeeklyReviewState extends State<WeeklyReview> {
                           });
                         },
                       ),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text('Disagree', style: textTheme.bodySmall),
+                            Text('Agree', style: textTheme.bodySmall),
+                          ],
+                        ),
+                      ),
                     ],
                   ),
               ],
-              const SizedBox(height: 24),
+              const SizedBox(height: 32),
               ElevatedButton(
                 onPressed: () => _finishReview(review.checkDue),
                 child: const Text('Start the new week'),
