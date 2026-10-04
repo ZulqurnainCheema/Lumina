@@ -81,6 +81,8 @@ flutter:
 
   assets:
     - assets/
+    # Fraunces and Manrope, bundled so the first launch works offline.
+    - assets/google_fonts/
   # The following line ensures that the Material Icons font is
   # included with your application, so that you can use the icons in
   # the material Icons class.

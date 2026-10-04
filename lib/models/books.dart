@@ -7,6 +7,7 @@ class Books {
   final String status;
   final String? createdAt;
   final String? abandonedAt;
+  final int? currentPage;
   Books({
     required this.id,
     required this.title,
@@ -16,6 +17,7 @@ class Books {
     required this.status,
     this.createdAt,
     this.abandonedAt,
+    this.currentPage,
   });
   Map<String, dynamic> toMap() {
     return {
@@ -27,6 +29,7 @@ class Books {
       'status': status,
       'createdAt': createdAt,
       'abandonedAt': abandonedAt,
+      'currentPage': currentPage,
     };
   }
 }

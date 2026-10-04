@@ -44,6 +44,12 @@ class HomeWidgetService {
         'hook',
         today.hook ?? 'Tap to read.',
       );
+      // The day this was written, so the widgets can tell when it is stale.
+      await HomeWidget.saveWidgetData<String>(
+        'widgetDate',
+        HabitServices.dateKey(DateTime.now()),
+      );
+      await HomeWidget.saveWidgetData<int>('goalMinutes', today.goalMinutes);
       await HomeWidget.saveWidgetData<String>('week', weekCode(today.week));
       await HomeWidget.saveWidgetData<String>(
         'weekLabels',

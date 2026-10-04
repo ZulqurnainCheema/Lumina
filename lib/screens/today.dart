@@ -13,7 +13,6 @@ import 'package:lumina/widgets/lumina_sheet.dart';
 import 'package:lumina/widgets/route_refresh.dart';
 import 'package:lumina/widgets/section_header.dart';
 import 'package:lumina/widgets/streak_card.dart';
-import 'package:lumina/widgets/why_chip.dart';
 import 'package:material_symbols_icons/material_symbols_icons.dart';
 
 class Today extends StatefulWidget {
@@ -142,38 +141,6 @@ class _TodayState extends State<Today> with RouteRefresh<Today> {
       }
       return;
     }
-
-    if (await _databaseServices.getSetting('recallShown') == today) {
-      return;
-    }
-    final Map<String, dynamic>? recall = await _databaseServices.getRecallEntry(
-      today,
-    );
-    if (recall == null || !mounted) {
-      return;
-    }
-    await _databaseServices.setSetting('recallShown', today);
-    if (!mounted) {
-      return;
-    }
-    final bool? reveal = await showLuminaSheet(
-      context,
-      title: 'What do you remember?',
-      body:
-          'You wrote a note about ${recall['title']}. Try to recall it before '
-          'you look.',
-      confirm: 'Show my note',
-      dismiss: 'Skip',
-      researchKey: 'recall',
-    );
-    if (reveal == true && mounted) {
-      await showLuminaSheet(
-        context,
-        title: recall['title'] as String,
-        body: recall['summary'] as String,
-        confirm: 'Got it',
-      );
-    }
   }
 
   String _greeting(DateTime now) {
@@ -236,10 +203,7 @@ class _TodayState extends State<Today> with RouteRefresh<Today> {
                 const SizedBox(height: 20),
                 _Hero(today: today),
                 const SizedBox(height: 20),
-                SectionHeader(
-                  label: 'Now reading',
-                  researchKey: today.pagesLeft == null ? null : 'finishLine',
-                ),
+                const SectionHeader(label: 'Now reading'),
                 const SizedBox(height: 8),
                 if (today.book == null)
                   Container(
@@ -255,6 +219,14 @@ class _TodayState extends State<Today> with RouteRefresh<Today> {
                   )
                 else
                   _BookCard(today: today),
+                if (today.otherBooks.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  _OtherBooks(books: today.otherBooks),
+                ],
+                if (today.recall != null) ...[
+                  const SizedBox(height: 12),
+                  _RecallCard(recall: today.recall!, onDone: onRouteShown),
+                ],
                 const SizedBox(height: 12),
                 StreakCard(today: today),
                 const SizedBox(height: 12),
@@ -305,20 +277,30 @@ class _Hero extends StatelessWidget {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(
-                    '$minutesToday',
-                    style: textTheme.displayMedium?.copyWith(
-                      fontFeatures: const [FontFeature.tabularFigures()],
+                  // Read today, but logged without a time: a tick instead
+                  // of a misleading 0.
+                  if (today.streak.readToday && today.secondsToday == 0) ...[
+                    const Icon(
+                      Icons.check_rounded,
+                      size: 64,
+                      color: LuminaColors.accent,
                     ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    // Read today, but logged without a time.
-                    today.streak.readToday && today.secondsToday == 0
-                        ? 'Read today · no time logged'
-                        : 'of ${today.goalMinutes} min today',
-                    style: textTheme.bodySmall,
-                  ),
+                    Text('Read today', style: textTheme.titleMedium),
+                    Text('no time logged', style: textTheme.bodySmall),
+                  ] else ...[
+                    Text(
+                      '$minutesToday',
+                      style: textTheme.displayMedium?.copyWith(
+                        fontFeatures: const [FontFeature.tabularFigures()],
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'of ${today.goalMinutes} min today',
+                      textAlign: TextAlign.center,
+                      style: textTheme.bodySmall,
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -374,7 +356,7 @@ class _BookCard extends StatelessWidget {
             const SizedBox(height: 16),
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.fromLTRB(16, 8, 6, 16),
+              padding: const EdgeInsets.fromLTRB(16, 8, 6, 16).copyWith(right: 16),
               decoration: BoxDecoration(
                 color: LuminaColors.tint(LuminaColors.recall),
                 borderRadius: BorderRadius.circular(18),
@@ -382,18 +364,14 @@ class _BookCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          'YOU WANTED TO KNOW',
-                          style: textTheme.labelMedium?.copyWith(
-                            color: LuminaColors.recall,
-                          ),
-                        ),
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8, bottom: 6),
+                    child: Text(
+                      'YOU WANTED TO KNOW',
+                      style: textTheme.labelMedium?.copyWith(
+                        color: LuminaColors.recall,
                       ),
-                      const WhyChip(researchKey: 'hook'),
-                    ],
+                    ),
                   ),
                   Padding(
                     padding: const EdgeInsets.only(right: 10),
@@ -432,6 +410,135 @@ class _BookCard extends StatelessWidget {
         ? ''
         : ' · about ${HabitServices.formatDuration(today.secondsLeft!)}';
     return '${today.pagesLeft} pages left$time';
+  }
+}
+
+// Books in progress besides the current one, each one tap from a session.
+class _OtherBooks extends StatelessWidget {
+  const _OtherBooks({required this.books});
+
+  final List<Books> books;
+
+  @override
+  Widget build(BuildContext context) {
+    final TextTheme textTheme = Theme.of(context).textTheme;
+    return Container(
+      padding: const EdgeInsets.fromLTRB(20, 16, 12, 8),
+      decoration: LuminaDecorations.card,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('ALSO READING', style: textTheme.labelMedium),
+          const SizedBox(height: 8),
+          for (final Books book in books)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Row(
+                children: [
+                  BookCover(
+                    coverUrl: book.coverUrl,
+                    title: book.title,
+                    width: 36,
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          book.title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: textTheme.titleMedium,
+                        ),
+                        Text(
+                          book.author,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: textTheme.bodySmall,
+                        ),
+                      ],
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: () =>
+                        GoRouter.of(context).push('/read/${book.id}'),
+                    child: const Text('Read'),
+                  ),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+// One of your own notes, asked as a question before it is shown.
+class _RecallCard extends StatelessWidget {
+  const _RecallCard({required this.recall, required this.onDone});
+
+  final Map<String, dynamic> recall;
+  final VoidCallback onDone;
+
+  Future<void> _finish(BuildContext context, {required bool reveal}) async {
+    await DatabaseServices.instance.setSetting(
+      'recallShown',
+      HabitServices.dateKey(DateTime.now()),
+    );
+    if (reveal && context.mounted) {
+      await showLuminaSheet(
+        context,
+        title: recall['title'] as String,
+        body: recall['summary'] as String,
+        confirm: 'Got it',
+        researchKey: 'recall',
+      );
+    }
+    onDone();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final TextTheme textTheme = Theme.of(context).textTheme;
+    return Container(
+      padding: const EdgeInsets.fromLTRB(20, 18, 12, 10),
+      decoration: LuminaDecorations.tinted(LuminaColors.recall),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('What do you remember?', style: textTheme.titleLarge),
+          const SizedBox(height: 4),
+          Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: Text(
+              'You wrote a note about ${recall['title']}. Try to recall it '
+              'before you look.',
+              style: textTheme.bodyMedium?.copyWith(
+                color: LuminaColors.textSecondary,
+              ),
+            ),
+          ),
+          const SizedBox(height: 4),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              TextButton(
+                onPressed: () => _finish(context, reveal: false),
+                child: const Text('Skip'),
+              ),
+              TextButton(
+                onPressed: () => _finish(context, reveal: true),
+                style: TextButton.styleFrom(
+                  foregroundColor: LuminaColors.recall,
+                ),
+                child: const Text('Show my note'),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
   }
 }
 

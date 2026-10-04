@@ -34,9 +34,9 @@ class BookCover extends StatelessWidget {
       alignment: Alignment.topLeft,
       child: Text(
         title,
-        maxLines: 4,
-        overflow: TextOverflow.fade,
-        style: LuminaTheme.display(size: width * 0.17, height: 1.15),
+        maxLines: 5,
+        overflow: TextOverflow.ellipsis,
+        style: LuminaTheme.display(size: width * 0.14, height: 1.15),
       ),
     );
     return Container(

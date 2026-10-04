@@ -48,6 +48,8 @@ class TodayData {
     required this.pagesLeft,
     required this.secondsLeft,
     required this.plan,
+    this.otherBooks = const <Books>[],
+    this.recall,
   });
 
   final StreakState streak;
@@ -60,6 +62,12 @@ class TodayData {
   final int? pagesLeft;
   final int? secondsLeft;
   final String? plan;
+
+  // Other books in progress, besides the one shown as the current book.
+  final List<Books> otherBooks;
+
+  // A note from 1, 7 or 30 days ago to recall, once a day at most.
+  final Map<String, dynamic>? recall;
 }
 
 class Celebration {
@@ -246,6 +254,13 @@ class HabitServices {
       pagesLeft: pagesLeft,
       secondsLeft: secondsLeft,
       plan: await getPlanLine(),
+      otherBooks: (await _databaseServices.getReadingBooks())
+          .where((other) => other.id != book?.id)
+          .toList(),
+      recall:
+          await _databaseServices.getSetting('recallShown') == dateKey(clock)
+          ? null
+          : await _databaseServices.getRecallEntry(dateKey(clock)),
     );
   }
 

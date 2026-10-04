@@ -21,7 +21,8 @@ class BookProgress extends StatefulWidget {
 
 class _BookProgressState extends State<BookProgress> {
   late Future<List<Entries>> _EntriesFuture;
-  late final Future<Books?> _bookFuture;
+  late Future<Books?> _bookFuture;
+  late Future<int> _percentFuture;
   final _databaseServices = DatabaseServices.instance;
 
   @override
@@ -29,11 +30,14 @@ class _BookProgressState extends State<BookProgress> {
     super.initState();
     _EntriesFuture = _databaseServices.getEntries(widget.id);
     _bookFuture = _databaseServices.getBook(widget.id);
+    _percentFuture = _databaseServices.getPercentageRead(widget.id);
   }
 
   void _refreshEntries() {
     setState(() {
       _EntriesFuture = _databaseServices.getEntries(widget.id);
+      _bookFuture = _databaseServices.getBook(widget.id);
+      _percentFuture = _databaseServices.getPercentageRead(widget.id);
     });
   }
 
@@ -71,6 +75,12 @@ class _BookProgressState extends State<BookProgress> {
       appBar: AppBar(
         actions: [
           IconButton(
+            onPressed: () => _open('/edit-book/${widget.id}'),
+            tooltip: 'Edit book',
+            icon: Icon(Symbols.edit),
+            color: LuminaColors.textSecondary,
+          ),
+          IconButton(
             onPressed: () {
               GoRouter.of(context).push('/summary/${widget.id}');
             },
@@ -90,9 +100,6 @@ class _BookProgressState extends State<BookProgress> {
             return const Center(child: CircularProgressIndicator());
           }
           final entries = snapshot.data!;
-          final progress = entries
-              .fold<int>(0, (sum, entry) => sum + entry.percentageRead)
-              .clamp(0, 100);
           final seconds = entries.fold<int>(
             0,
             (sum, entry) => sum + (entry.durationSeconds ?? 0),
@@ -137,12 +144,27 @@ class _BookProgressState extends State<BookProgress> {
                 },
               ),
               const SizedBox(height: 24),
-              LuminaWidgets.progressBar(progress / 100),
+              FutureBuilder<int>(
+                future: _percentFuture,
+                builder: (context, percentSnapshot) {
+                  return LuminaWidgets.progressBar(
+                    (percentSnapshot.data ?? 0) / 100,
+                  );
+                },
+              ),
               const SizedBox(height: 16),
               Row(
                 children: [
                   Expanded(
-                    child: StatTile(label: 'Progress', value: '$progress%'),
+                    child: FutureBuilder<int>(
+                      future: _percentFuture,
+                      builder: (context, percentSnapshot) {
+                        return StatTile(
+                          label: 'Progress',
+                          value: '${percentSnapshot.data ?? 0}%',
+                        );
+                      },
+                    ),
                   ),
                   const SizedBox(width: 10),
                   Expanded(
@@ -178,6 +200,7 @@ class _BookProgressState extends State<BookProgress> {
                       context,
                       entry,
                       onDelete: _deleteEntry,
+                      onEdit: (int entryId) => _open('/edit-entry/$entryId'),
                     ),
                   ),
             ],
@@ -214,6 +237,7 @@ Widget buildBookProgressCard(
   BuildContext context,
   Entries entry, {
   required Future<void> Function(int entryId) onDelete,
+  required void Function(int entryId) onEdit,
 }) {
   final TextTheme textTheme = Theme.of(context).textTheme;
   final DateTime? createdAt = DateTime.tryParse(entry.createdAt ?? '');
@@ -221,9 +245,14 @@ Widget buildBookProgressCard(
     if ((entry.durationSeconds ?? 0) >= 60)
       HabitServices.formatDuration(entry.durationSeconds!),
     if ((entry.pagesRead ?? 0) > 0) '${entry.pagesRead} pages',
-    '+${entry.percentageRead}%',
+    if ((entry.pagesRead ?? 0) == 0 && entry.percentageRead > 0)
+      '+${entry.percentageRead}%',
   ];
   final String hook = (entry.hook ?? '').trim();
+
+  if (details.isEmpty) {
+    details.add('No time or pages logged');
+  }
 
   return Container(
     width: double.infinity,
@@ -246,11 +275,17 @@ Widget buildBookProgressCard(
               icon: const Icon(Icons.more_vert),
               iconColor: LuminaColors.textTertiary,
               onSelected: (String value) async {
-                if (value == 'delete' && entry.id != null) {
+                if (entry.id == null) {
+                  return;
+                }
+                if (value == 'edit') {
+                  onEdit(entry.id!);
+                } else if (value == 'delete') {
                   await onDelete(entry.id!);
                 }
               },
               itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
+                const PopupMenuItem<String>(value: 'edit', child: Text('Edit')),
                 const PopupMenuItem<String>(
                   value: 'delete',
                   child: Text('Delete'),

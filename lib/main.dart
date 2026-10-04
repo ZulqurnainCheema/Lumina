@@ -1,5 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:lumina/screens/edit_book.dart';
+import 'package:lumina/screens/edit_entry.dart';
 import 'package:lumina/screens/library.dart';
 import 'package:lumina/screens/reading_plan.dart';
 import 'package:lumina/screens/reading_session.dart';
@@ -107,6 +109,18 @@ final GoRouter _router = GoRouter(
           id: int.parse(id),
           durationSeconds: state.extra as int?,
         );
+      },
+    ),
+    GoRoute(
+      path: '/edit-book/:id',
+      builder: (context, state) {
+        return EditBook(id: int.parse(state.pathParameters['id']!));
+      },
+    ),
+    GoRoute(
+      path: '/edit-entry/:id',
+      builder: (context, state) {
+        return EditEntry(id: int.parse(state.pathParameters['id']!));
       },
     ),
     GoRoute(

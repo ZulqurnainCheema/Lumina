@@ -29,7 +29,8 @@ class _AddBookProgressState extends State<AddBookProgress> {
   final TextEditingController _minutesController = TextEditingController();
   final _DatabaseServices = DatabaseServices.instance;
   bool _isbypages = false;
-  int? _absorption;
+
+  static const int _longSessionSeconds = 3 * 60 * 60;
 
   bool get _hasSession => (widget.durationSeconds ?? 0) > 0;
 
@@ -44,7 +45,21 @@ class _AddBookProgressState extends State<AddBookProgress> {
   @override
   void initState() {
     super.initState();
+    if (_hasSession) {
+      _minutesController.text = '${_timerMinutes()}';
+    }
     _loadPosition();
+  }
+
+  int _timerMinutes() => (widget.durationSeconds! / 60).round();
+
+  // The timer's exact time, unless the minutes were changed by hand.
+  int _durationSeconds() {
+    final int typed = int.tryParse(_minutesController.text.trim()) ?? 0;
+    if (_hasSession && typed == _timerMinutes()) {
+      return widget.durationSeconds!;
+    }
+    return typed * 60;
   }
 
   Future<void> _loadPosition() async {
@@ -123,11 +138,8 @@ class _AddBookProgressState extends State<AddBookProgress> {
         createdAt: DateTime.now().toIso8601String(),
         pagesRead: progress.pages,
         // Without the timer, the minutes typed in fill today's ring.
-        durationSeconds: _hasSession
-            ? widget.durationSeconds
-            : (int.tryParse(_minutesController.text.trim()) ?? 0) * 60,
+        durationSeconds: _durationSeconds(),
         hook: _hookController.text.trim(),
-        absorption: _absorption,
       );
       await _DatabaseServices.addEntry(newEntry.toMap());
       HapticFeedback.mediumImpact();
@@ -177,9 +189,7 @@ class _AddBookProgressState extends State<AddBookProgress> {
                   ),
                   SizedBox(height: 8),
                   Text(
-                    _hasSession
-                        ? 'Any amount keeps your streak. The two notes are optional.'
-                        : 'Any amount keeps your streak. Add the minutes to fill today\'s ring.',
+                    'Any amount keeps your streak. The two notes are optional.',
                     style: textTheme.bodyMedium?.copyWith(
                       color: LuminaColors.textSecondary,
                     ),
@@ -234,29 +244,33 @@ class _AddBookProgressState extends State<AddBookProgress> {
                       keyboardType: TextInputType.number,
                       validator: _validatePosition,
                     ),
-                  if (!_hasSession) ...[
-                    SizedBox(height: 12),
-                    TextFormField(
-                      controller: _minutesController,
-                      style: _fieldTextStyle,
-                      decoration: InputDecoration(
-                        labelText: 'Minutes read',
-                        hintText: 'Counts toward today\'s goal',
-                      ),
-                      keyboardType: TextInputType.number,
-                      validator: (value) {
-                        final String text = (value ?? '').trim();
-                        if (text.isEmpty) {
-                          return null;
-                        }
-                        final int? minutes = int.tryParse(text);
-                        if (minutes == null || minutes < 0 || minutes > 600) {
-                          return 'Please enter minutes between 0 and 600';
-                        }
-                        return null;
-                      },
+                  SizedBox(height: 12),
+                  TextFormField(
+                    controller: _minutesController,
+                    style: _fieldTextStyle,
+                    decoration: InputDecoration(
+                      labelText: 'Minutes read',
+                      // A timer left running is easy to correct here.
+                      helperText: !_hasSession
+                          ? 'Counts toward today\'s goal'
+                          : widget.durationSeconds! >= _longSessionSeconds
+                          ? 'The timer ran for ${HabitServices.formatDuration(widget.durationSeconds!)}. Change this if you forgot to stop it.'
+                          : 'From the timer. Change it if it is wrong.',
+                      helperMaxLines: 2,
                     ),
-                  ],
+                    keyboardType: TextInputType.number,
+                    validator: (value) {
+                      final String text = (value ?? '').trim();
+                      if (text.isEmpty) {
+                        return null;
+                      }
+                      final int? minutes = int.tryParse(text);
+                      if (minutes == null || minutes < 0 || minutes > 600) {
+                        return 'Please enter minutes between 0 and 600';
+                      }
+                      return null;
+                    },
+                  ),
                   SizedBox(height: 28),
                   SectionHeader(label: 'Keep one thing', researchKey: 'recall'),
                   SizedBox(height: 8),
@@ -284,33 +298,6 @@ class _AddBookProgressState extends State<AddBookProgress> {
                       hintText: 'Lumina shows this back to you tomorrow',
                     ),
                     maxLines: 2,
-                  ),
-                  SizedBox(height: 28),
-                  SectionHeader(label: 'How absorbed were you?'),
-                  SizedBox(height: 8),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      for (int level = 1; level <= 5; level++)
-                        ChoiceChip(
-                          label: Text('$level'),
-                          selected: _absorption == level,
-                          showCheckmark: false,
-                          onSelected: (selected) {
-                            setState(() {
-                              _absorption = selected ? level : null;
-                            });
-                          },
-                        ),
-                    ],
-                  ),
-                  SizedBox(height: 6),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text('Distracted', style: textTheme.bodySmall),
-                      Text('Lost in it', style: textTheme.bodySmall),
-                    ],
                   ),
                   SizedBox(height: 32),
                   ElevatedButton(

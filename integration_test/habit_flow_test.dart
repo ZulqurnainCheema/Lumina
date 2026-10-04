@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:lumina/main.dart';
 import 'package:lumina/services/database_services.dart';
@@ -108,6 +109,8 @@ Future<void> screenshot(WidgetTester tester, String name) async {
 
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
+  // Fonts must come from the app bundle, as on a first launch with no network.
+  GoogleFonts.config.allowRuntimeFetching = false;
   sqfliteFfiInit();
   databaseFactory = databaseFactoryFfi;
 
@@ -183,20 +186,30 @@ void main() {
     await screenshot(tester, '03-today');
   });
 
-  testWidgets('a why chip opens the finding and its source', (tester) async {
+  testWidgets('the streak rules and their source are one tap away', (
+    tester,
+  ) async {
     await skipOpenPrompts();
     final int book = await addBook();
     await readOn(book, daysAgo(1));
 
     await startApp(tester);
-    await tester.tap(find.text('Why?').first);
+    await tester.scrollUntilVisible(
+      find.text('How it works'),
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(find.text('How it works'));
     await settle(tester);
 
-    expect(find.text('Seeing how little is left'), findsOneWidget);
-    expect(
-      find.textContaining('Kivetz, Urminsky & Zheng (2006)'),
-      findsOneWidget,
-    );
+    expect(find.text('How your streak works'), findsOneWidget);
+    expect(find.textContaining('earns a freeze, up to 2'), findsOneWidget);
+    await screenshot(tester, '04-streak-rules');
+
+    await tester.tap(find.text('Why?'));
+    await settle(tester);
+    expect(find.text('A streak you can repair'), findsOneWidget);
+    expect(find.textContaining('Silverman & Barasch (2023)'), findsOneWidget);
     await screenshot(tester, '04-why-sheet');
 
     await tester.tap(find.text('See all the science'));
@@ -254,8 +267,7 @@ void main() {
       find.widgetWithText(TextFormField, 'Your open question'),
       'Who betrayed the Atreides?',
     );
-    await tester.ensureVisible(find.text('4'));
-    await tester.tap(find.text('4'));
+    expect(find.textContaining('From the timer.'), findsOneWidget);
     await screenshot(tester, '08-session-wrap-up');
 
     await tester.ensureVisible(find.text('Save'));
@@ -272,7 +284,6 @@ void main() {
     expect(find.text('Who betrayed the Atreides?'), findsOneWidget);
     final entries = await databaseServices.getEntries(book);
     expect(entries.first.durationSeconds, greaterThan(0));
-    expect(entries.first.absorption, 4);
     expect(await databaseServices.getSetting('sessionBookId'), '');
   });
 
@@ -475,6 +486,12 @@ void main() {
 
     await startApp(tester);
 
+    // A card on Today, not a pop-up.
+    await tester.scrollUntilVisible(
+      find.text('Show my note'),
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
     expect(find.text('What do you remember?'), findsOneWidget);
     await screenshot(tester, '20-recall-prompt');
 
@@ -485,6 +502,125 @@ void main() {
     await screenshot(tester, '21-recall-answer');
 
     await tester.tap(find.text('Got it'));
+    await settle(tester);
+
+    // Once answered, it is gone for the day.
+    expect(find.text('What do you remember?'), findsNothing);
+  });
+
+  testWidgets('a timer left running can be corrected before saving', (
+    tester,
+  ) async {
+    await skipOpenPrompts();
+    final int book = await addBook();
+    await readOn(book, daysAgo(1));
+
+    await startApp(tester);
+    // As if the timer had been left running for four hours.
+    router(tester).push('/add-book-progress/$book', extra: 4 * 60 * 60);
+    await settle(tester);
+
+    expect(find.textContaining('The timer ran for 4h 0m'), findsOneWidget);
+    await tester.enterText(
+      find.widgetWithText(TextFormField, 'Minutes read'),
+      '30',
+    );
+    await screenshot(tester, '26-long-timer');
+    await tester.ensureVisible(find.text('Save'));
+    await tester.tap(find.text('Save'));
+    await settle(tester);
+
+    expect(
+      await databaseServices.getSecondsOnDate(
+        HabitServices.dateKey(DateTime.now()),
+      ),
+      30 * 60,
+    );
+    expect(find.text('30'), findsOneWidget);
+  });
+
+  testWidgets('a session and the bookmark can be corrected', (tester) async {
+    await skipOpenPrompts();
+    final int book = await addBook();
+    await databaseServices.addEntry({
+      'bookId': book,
+      'summary': 'Fear is the mind-killer.',
+      'createdAt': DateTime.now().toIso8601String(),
+      'pagesRead': 13,
+      'durationSeconds': 1500,
+    });
+
+    await startApp(tester);
+    await tester.tap(find.text('Library'));
+    await settle(tester);
+    await tester.tap(find.text('Dune').last);
+    await settle(tester);
+    expect(find.text('25m · 13 pages'), findsOneWidget);
+
+    await tester.tap(find.byIcon(Icons.more_vert));
+    await settle(tester);
+    await tester.tap(find.text('Edit'));
+    await settle(tester);
+    await tester.enterText(
+      find.widgetWithText(TextFormField, 'Pages read in this session'),
+      '20',
+    );
+    await tester.enterText(
+      find.widgetWithText(TextFormField, 'Minutes read'),
+      '40',
+    );
+    await screenshot(tester, '27-edit-session');
+    await tester.tap(find.text('Save changes'));
+    await settle(tester);
+
+    expect(find.text('40m · 20 pages'), findsOneWidget);
+    expect(await databaseServices.getCurrentPage(book), 20);
+
+    await tester.tap(find.byTooltip('Edit book'));
+    await settle(tester);
+    await tester.enterText(
+      find.widgetWithText(TextFormField, 'Page you are on'),
+      '160',
+    );
+    await screenshot(tester, '28-edit-book');
+    await tester.tap(find.text('Save changes'));
+    await settle(tester);
+
+    expect(await databaseServices.getCurrentPage(book), 160);
+    expect(find.text('50%'), findsOneWidget);
+    await goHome(tester);
+    expect(find.textContaining('160 pages left'), findsOneWidget);
+  });
+
+  testWidgets('today lists every book in progress', (tester) async {
+    await skipOpenPrompts();
+    final int book = await addBook();
+    await readOn(book, daysAgo(1));
+    final Database db = await databaseServices.database;
+    final int second = await db.insert('books', {
+      'title': 'Hyperion',
+      'author': 'Dan Simmons',
+      'coverUrl': '',
+      'totalPages': 480,
+      'status': 'reading',
+    });
+    await readOn(second, daysAgo(3));
+
+    await startApp(tester);
+    await tester.scrollUntilVisible(
+      find.text('ALSO READING'),
+      200,
+      scrollable: find.byType(Scrollable).first,
+    );
+
+    expect(find.text('Hyperion'), findsWidgets);
+    await screenshot(tester, '29-also-reading');
+
+    await tester.tap(find.text('Read'));
+    await settle(tester);
+    expect(find.text('Done reading'), findsOneWidget);
+    // Leave the session without saving.
+    await tester.tap(find.byTooltip('discard session'));
     await settle(tester);
   });
 
@@ -531,7 +667,9 @@ void main() {
     // The seeded session left the bookmark on page 13.
     await logManually(page: '24', minutes: '');
     expect(find.text('2 day streak'), findsOneWidget);
-    expect(find.text('Read today · no time logged'), findsOneWidget);
+    expect(find.text('Read today'), findsOneWidget);
+    expect(find.text('no time logged'), findsOneWidget);
+    await screenshot(tester, '25-read-no-time');
 
     // Minutes typed: they fill the ring. Page 42 means 18 more pages, not 42.
     await logManually(page: '42', minutes: '12');

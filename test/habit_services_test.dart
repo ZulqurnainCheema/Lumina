@@ -386,6 +386,90 @@ void main() {
     });
   });
 
+  group('corrections', () {
+    Future<int> bookOnPage42() async {
+      final int book = await addBook(totalPages: 320);
+      await databaseServices.addEntry({
+        'bookId': book,
+        'summary': '',
+        'createdAt': daysAgo(1).toIso8601String(),
+        'pagesRead': 24,
+        'durationSeconds': 1200,
+      });
+      await databaseServices.addEntry({
+        'bookId': book,
+        'summary': '',
+        'createdAt': today.toIso8601String(),
+        'pagesRead': 18,
+        'durationSeconds': 900,
+      });
+      return book;
+    }
+
+    test('logging moves the bookmark', () async {
+      final int book = await bookOnPage42();
+
+      expect((await databaseServices.getBook(book))?.currentPage, 42);
+      expect(await databaseServices.getPercentageRead(book), 13);
+    });
+
+    test('editing a session moves the bookmark by the difference', () async {
+      final int book = await bookOnPage42();
+      final entry = (await databaseServices.getEntries(book)).first;
+
+      await databaseServices.editEntry(entry.id!, {
+        'pagesRead': 28,
+        'durationSeconds': 600,
+      });
+
+      expect(await databaseServices.getCurrentPage(book), 52);
+      expect(
+        await databaseServices.getSecondsOnDate(HabitServices.dateKey(today)),
+        600,
+      );
+    });
+
+    test('deleting a session moves the bookmark back', () async {
+      final int book = await bookOnPage42();
+      final entry = (await databaseServices.getEntries(book)).first;
+
+      await databaseServices.deleteEntry(entry.id!);
+
+      expect(await databaseServices.getCurrentPage(book), 24);
+      expect((await databaseServices.getBook(book))?.status, 'reading');
+    });
+
+    test('the bookmark can be set directly', () async {
+      final int book = await bookOnPage42();
+
+      await databaseServices.setBookmark(book, 160);
+      expect(await databaseServices.getPercentageRead(book), 50);
+      expect((await habitServices.getToday(now: today)).pagesLeft, 160);
+
+      // The last page finishes the book; it cannot go past the end.
+      await databaseServices.setBookmark(book, 999);
+      expect(await databaseServices.getCurrentPage(book), 320);
+      expect((await databaseServices.getBook(book))?.status, 'read');
+    });
+
+    test('today lists the other books in progress', () async {
+      final int first = await bookOnPage42();
+      final Database db = await databaseServices.database;
+      final int second = await db.insert('books', {
+        'title': 'Hyperion',
+        'author': 'Dan Simmons',
+        'totalPages': 480,
+        'status': 'reading',
+      });
+      await readOn(second, daysAgo(3));
+
+      final TodayData data = await habitServices.getToday(now: today);
+
+      expect(data.book?.id, first);
+      expect(data.otherBooks.map((book) => book.title), ['Hyperion']);
+    });
+  });
+
   group('migration', () {
     test('a version 1 database upgrades with its rows intact', () async {
       final Directory directory = await Directory.systemTemp.createTemp(

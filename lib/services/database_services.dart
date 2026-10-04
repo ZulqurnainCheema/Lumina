@@ -34,7 +34,7 @@ class DatabaseServices {
   Future<Database> openAt(String path) {
     return openDatabase(
       path,
-      version: 2,
+      version: 3,
       onConfigure: (db) async {
         await db.execute('PRAGMA foreign_keys = ON');
       },
@@ -48,7 +48,8 @@ class DatabaseServices {
             totalPages INTEGER,
             status TEXT NOT NULL CHECK(status IN ('to-read', 'reading', 'read')),
             createdAt TEXT,
-            abandonedAt TEXT
+            abandonedAt TEXT,
+            currentPage INTEGER
           )
         ''');
 
@@ -79,6 +80,11 @@ class DatabaseServices {
           await db.execute('ALTER TABLE entries ADD COLUMN hook TEXT');
           await db.execute('ALTER TABLE entries ADD COLUMN absorption INTEGER');
           await _createHabitTables(db);
+        }
+        if (oldVersion < 3) {
+          // The page the reader is on. Empty until the book is next logged,
+          // when it takes over from adding up the old entries.
+          await db.execute('ALTER TABLE books ADD COLUMN currentPage INTEGER');
         }
       },
     );
@@ -130,6 +136,7 @@ class DatabaseServices {
       status: map['status'] as String,
       createdAt: map['createdAt'] as String?,
       abandonedAt: map['abandonedAt'] as String?,
+      currentPage: map['currentPage'] as int?,
     );
   }
 
@@ -200,6 +207,30 @@ class DatabaseServices {
         .toList();
   }
 
+  Future<Entries?> getEntry(int id) async {
+    final Database db = await database;
+    final List<Map<String, dynamic>> rows = await db.query(
+      'entries',
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+    if (rows.isEmpty) {
+      return null;
+    }
+    final Map<String, dynamic> entry = rows.first;
+    return Entries(
+      id: entry['id'] as int,
+      bookId: entry['bookId'] as int,
+      percentageRead: entry['percentageRead'] as int? ?? 0,
+      summary: entry['summary'] as String? ?? '',
+      createdAt: entry['createdAt'] as String?,
+      pagesRead: entry['pagesRead'] as int?,
+      durationSeconds: entry['durationSeconds'] as int?,
+      hook: entry['hook'] as String?,
+      absorption: entry['absorption'] as int?,
+    );
+  }
+
   Future<List<DateTime>> getRecentEntryTimes({int limit = 14}) async {
     final Database db = await database;
     final List<Map<String, dynamic>> rows = await db.query(
@@ -225,37 +256,104 @@ class DatabaseServices {
     return recentEntries.first;
   }
 
+  // Saves one reading session and moves the book's bookmark. The bookmark
+  // (books.currentPage) is the one record of where the reader is; the percent
+  // and "pages left" shown anywhere are worked out from it.
   Future<void> addEntry(Map<String, dynamic> entry) async {
     final Database db = await database;
     final int bookId = (entry['bookId'] as num).toInt();
-    final int currentTotal = await getPercentageRead(bookId);
-    final int requestedProgress = ((entry['percentageRead'] as num?) ?? 0)
+    final int totalPages = await getTotalPages(bookId);
+    final int percentBefore = await getPercentageRead(bookId);
+    final int requestedPercent = ((entry['percentageRead'] as num?) ?? 0)
         .toInt()
         .clamp(0, 100);
-    final int remaining = (100 - currentTotal).clamp(0, 100);
-    final int progressToInsert = requestedProgress.clamp(0, remaining);
+    final bool hasTime = ((entry['durationSeconds'] as num?) ?? 0) > 0;
 
-    // A timed session or a few pages can round down to 0%; it still counts.
-    final bool hasActivity =
-        ((entry['durationSeconds'] as num?) ?? 0) > 0 ||
-        ((entry['pagesRead'] as num?) ?? 0) > 0;
-    if (progressToInsert <= 0 && !hasActivity) {
+    final Map<String, dynamic> safeEntry = Map<String, dynamic>.from(entry);
+    int percentAfter;
+    if (totalPages > 0) {
+      final int pageBefore = await getCurrentPage(bookId);
+      final int requestedPages =
+          (entry['pagesRead'] as num?)?.toInt() ??
+          (requestedPercent * totalPages / 100).round();
+      final int pageAfter = (pageBefore + requestedPages).clamp(0, totalPages);
+      percentAfter = (pageAfter * 100 / totalPages).floor();
+      if (pageAfter == pageBefore && !hasTime) {
+        return;
+      }
+      safeEntry['pagesRead'] = pageAfter - pageBefore;
+      safeEntry['percentageRead'] = (percentAfter - percentBefore).clamp(
+        0,
+        100,
+      );
+      await db.insert('entries', safeEntry);
+      await updateBook(bookId, {'currentPage': pageAfter});
+    } else {
+      // No page count for this book, so it is tracked by percent alone.
+      final int progress = requestedPercent.clamp(0, 100 - percentBefore);
+      final bool hasPages = ((entry['pagesRead'] as num?) ?? 0) > 0;
+      if (progress <= 0 && !hasTime && !hasPages) {
+        return;
+      }
+      safeEntry['percentageRead'] = progress;
+      await db.insert('entries', safeEntry);
+      percentAfter = percentBefore + progress;
+    }
+
+    await updateBook(bookId, {'abandonedAt': null});
+    await _updateStatus(bookId, percentAfter, started: true);
+  }
+
+  // A book is finished when all of it is read, the same point at which
+  // "pages left" reaches zero.
+  Future<void> _updateStatus(
+    int bookId,
+    int percent, {
+    bool started = false,
+  }) async {
+    final String status;
+    if (percent >= 100) {
+      status = 'read';
+    } else if (percent > 0 || started) {
+      status = 'reading';
+    } else {
+      status = 'to-read';
+    }
+    await updateBook(bookId, {'status': status});
+  }
+
+  // Corrects where the reader is without logging a session.
+  Future<void> setBookmark(int bookId, int page) async {
+    final int totalPages = await getTotalPages(bookId);
+    final int clamped = totalPages > 0 ? page.clamp(0, totalPages) : page;
+    await updateBook(bookId, {'currentPage': clamped});
+    final bool hasEntries = (await getEntries(bookId)).isNotEmpty;
+    await _updateStatus(
+      bookId,
+      await getPercentageRead(bookId),
+      started: hasEntries,
+    );
+  }
+
+  // Changes a saved session. If its page count changes, the bookmark moves
+  // by the same amount.
+  Future<void> editEntry(int id, Map<String, dynamic> changes) async {
+    final Database db = await database;
+    final List<Map<String, dynamic>> rows = await db.query(
+      'entries',
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+    if (rows.isEmpty) {
       return;
     }
-
-    final Map<String, dynamic> safeEntry = Map<String, dynamic>.from(entry)
-      ..['percentageRead'] = progressToInsert;
-    await db.insert('entries', safeEntry);
-
-    final int newTotal = currentTotal + progressToInsert;
-    if (currentTotal == 0) {
-      await updateBook(bookId, {'status': 'reading'});
-    }
-    await updateBook(bookId, {'abandonedAt': null});
-    // A book is finished when all of it is read, the same point at which
-    // "pages left" reaches zero.
-    if (newTotal >= 100) {
-      await updateBook(bookId, {'status': 'read'});
+    final int bookId = rows.first['bookId'] as int;
+    final int oldPages = rows.first['pagesRead'] as int? ?? 0;
+    final int pageBefore = await getCurrentPage(bookId);
+    await db.update('entries', changes, where: 'id = ?', whereArgs: [id]);
+    if (changes.containsKey('pagesRead')) {
+      final int newPages = changes['pagesRead'] as int? ?? 0;
+      await setBookmark(bookId, pageBefore + newPages - oldPages);
     }
   }
 
@@ -266,12 +364,17 @@ class DatabaseServices {
 
   Future<int> getPercentageRead(int bookId) async {
     final Database db = await database;
+    // Once a book has a bookmark, the percent comes from it.
+    final Books? book = await getBook(bookId);
+    if (book?.currentPage != null && book!.totalPages > 0) {
+      return (book.currentPage! * 100 / book.totalPages).floor().clamp(0, 100);
+    }
     final List<Map<String, dynamic>> result = await db.rawQuery(
       'SELECT SUM(percentageRead) as percentageRead FROM entries WHERE bookId = ?',
       [bookId],
     );
     if (result.isNotEmpty) {
-      return result.first['percentageRead'] as int? ?? 0;
+      return ((result.first['percentageRead'] as int?) ?? 0).clamp(0, 100);
     }
     return 0;
   }
@@ -285,10 +388,14 @@ class DatabaseServices {
     return (result.first['pagesRead'] as num?)?.toInt() ?? 0;
   }
 
-  // The page the reader is on. Uses the logged pages, or the percent for
-  // older entries that were logged without a page count.
+  // The page the reader is on: the book's bookmark, or for a book not logged
+  // since bookmarks were added, worked out from its old entries.
   Future<int> getCurrentPage(int bookId) async {
-    final int totalPages = await getTotalPages(bookId);
+    final Books? book = await getBook(bookId);
+    if (book?.currentPage != null) {
+      return book!.currentPage!;
+    }
+    final int totalPages = book?.totalPages ?? 0;
     final int pages = await getPagesRead(bookId);
     if (totalPages <= 0) {
       return pages;
@@ -317,21 +424,27 @@ class DatabaseServices {
     final Database db = await database;
     final List<Map<String, dynamic>> rows = await db.query(
       'entries',
-      columns: ['bookId'],
+      columns: ['bookId', 'pagesRead'],
       where: 'id = ?',
       whereArgs: [id],
     );
-    await db.delete('entries', where: 'id = ?', whereArgs: [id]);
     if (rows.isEmpty) return;
     final int bookId = rows.first['bookId'] as int;
-    final int newTotal = await getPercentageRead(bookId);
-    if (newTotal <= 0) {
-      await updateBook(bookId, {'status': 'to-read'});
-    } else if (newTotal < 100) {
-      await updateBook(bookId, {'status': 'reading'});
-    } else {
-      await updateBook(bookId, {'status': 'read'});
+    // Take the session's pages back off the bookmark.
+    final int pageBefore = await getCurrentPage(bookId);
+    await db.delete('entries', where: 'id = ?', whereArgs: [id]);
+    final Books? book = await getBook(bookId);
+    if (book?.currentPage != null) {
+      final int pages = rows.first['pagesRead'] as int? ?? 0;
+      await updateBook(bookId, {
+        'currentPage': (pageBefore - pages).clamp(0, pageBefore),
+      });
     }
+    await _updateStatus(
+      bookId,
+      await getPercentageRead(bookId),
+      started: (await getEntries(bookId)).isNotEmpty,
+    );
   }
 
   //Reporting functions
@@ -580,6 +693,20 @@ class DatabaseServices {
       return _bookFromMap(toRead.first);
     }
     return null;
+  }
+
+  // Every book in progress, most recently read first.
+  Future<List<Books>> getReadingBooks() async {
+    final Database db = await database;
+    final List<Map<String, dynamic>> rows = await db.rawQuery('''
+      SELECT books.*
+      FROM books
+      LEFT JOIN entries ON entries.bookId = books.id
+      WHERE books.status = 'reading' AND books.abandonedAt IS NULL
+      GROUP BY books.id
+      ORDER BY MAX(entries.createdAt) DESC
+    ''');
+    return rows.map(_bookFromMap).toList();
   }
 
   Future<String?> getLatestHook(int bookId) async {

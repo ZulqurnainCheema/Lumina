@@ -5,10 +5,10 @@ Every UI test below drives the real app on Linux at phone size (412 × 892) agai
 ## Running the tests
 
 ```bash
-# Logic: streaks, freezes, repair, migration, reminders, backup, research entries (33 tests, about 1 second)
+# Logic: streaks, freezes, repair, migration, reminders, backup, research entries (38 tests, about 1 second)
 flutter test
 
-# UI flows, one or more screenshots per test (15 tests, 2 to 4 minutes, needs a display)
+# UI flows, one or more screenshots per test (18 tests, 3 to 5 minutes, needs a display)
 flutter test integration_test/habit_flow_test.dart -d linux
 ```
 
@@ -30,6 +30,7 @@ The reminder *content and timing rules* are unit tested (see the last table).
 - **One hero per screen**: the minutes ring on Today, days read this week on Stats, the cover on a book page. One serif title, one filled green button for the main action; everything else is a tonal pill or plain text.
 - **Surfaces, not borders**: warm near-black background with cards one step lighter. Tinted cards mark meaning: amber is the streak, lavender is your own notes and questions, green is the main action and live progress.
 - **Two typefaces**: Fraunces for titles and big numbers, Manrope for everything else.
+- **Fonts are bundled.** The UI tests run with font downloads switched off, so they prove the app looks right on a first launch with no network.
 - **A "Why?" chip** next to each mechanic opens the study it is built on. The full list is in Settings → The science. The text lives in `lib/research.dart`.
 
 ---
@@ -58,21 +59,21 @@ Built on: Silverman & Barasch (2023) on streaks; Loewenstein (1994) on curiosity
 
 ![Today](screenshots/03-today.png)
 
-### 3. A why chip opens the finding and its source
+### 3. The streak rules and their source are one tap away
 
-`a why chip opens the finding and its source`
+`the streak rules and their source are one tap away`
 
-Taps the "Why?" chip next to Now reading and checks the sheet shows the finding and the citation. Then follows "See all the science", and opens an entry in the "leaves out on purpose" group.
+Taps "How it works" on the streak card and checks the rules are stated in plain words. From there "Why?" opens the study behind it, and "See all the science" opens the full list, including the group Lumina leaves out on purpose.
 
-| Why sheet | The science | Left out on purpose |
-|---|---|---|
-| ![Why sheet](screenshots/04-why-sheet.png) | ![Science](screenshots/05-science.png) | ![Left out](screenshots/06-science-left-out.png) |
+| Streak rules | Why sheet | The science | Left out on purpose |
+|---|---|---|---|
+| ![Streak rules](screenshots/04-streak-rules.png) | ![Why sheet](screenshots/04-why-sheet.png) | ![Science](screenshots/05-science.png) | ![Left out](screenshots/06-science-left-out.png) |
 
 ### 4. A reading session is timed, logged and hits a milestone
 
 `a reading session is timed, logged and hits a milestone`
 
-Taps Continue reading, lets the timer run, finishes, fills in the wrap-up and saves. Because this is the seventh day in a row, the milestone sheet appears. The test then checks the entry stored a duration and the absorption rating, the session was cleared, and Today shows the new open question.
+Taps Continue reading, lets the timer run, finishes, fills in the wrap-up and saves. The wrap-up shows the timer's minutes in an editable field. Because this is the seventh day in a row, the milestone sheet appears. The test then checks the entry stored a duration, the session was cleared, and Today shows the new open question.
 
 Built on: Harkin et al. (2016) on recording progress; Roediger & Karpicke (2006) on recalling instead of rereading.
 
@@ -164,7 +165,7 @@ This one is a design choice; the app says so, and cites no study.
 
 `yesterday's note comes back as a recall prompt`
 
-A note written yesterday is offered as a recall question first, then revealed. Notes resurface 1, 7 and 30 days after they were written.
+A note written yesterday appears as a card on Today (not a pop-up), asked as a question first and then revealed. Once answered it is gone for the day. Notes resurface 1, 7 and 30 days after they were written.
 
 Built on: Roediger & Karpicke (2006): 61% retained after a week when recalling, 40% when rereading.
 
@@ -184,11 +185,37 @@ The "Lumina streak" home-screen widget shows the same card as Today. Android wid
 
 `logging without the timer can still fill the ring`
 
-You log where your bookmark is, not how many pages you read. The form shows where you were ("You were on page 13 of 320"). The test logs page 24 with no minutes: the streak counts and the ring says "Read today · no time logged". Then it logs page 42 with 12 minutes and checks that 18 pages were added (not 42), the ring shows 12, and Today says 278 pages left.
+You log where your bookmark is, not how many pages you read. The form shows where you were ("You were on page 13 of 320"). The test logs page 24 with no minutes: the streak counts and the ring shows a tick with "Read today, no time logged" ([screenshot](screenshots/25-read-no-time.png)). Then it logs page 42 with 12 minutes and checks that 18 pages were added (not 42), the ring shows 12, and Today says 278 pages left.
 
 | Logging the page you are on | Today afterwards |
 |---|---|
 | ![Log current page](screenshots/23-log-current-page.png) | ![Manual minutes](screenshots/24-manual-minutes.png) |
+
+### 16. A timer left running can be corrected before saving
+
+`a timer left running can be corrected before saving`
+
+Opens the wrap-up as if the timer had run for four hours. The form says so and lets you change the minutes; the test sets 30 and checks 30 minutes is what gets saved and shown in the ring.
+
+![Long timer](screenshots/26-long-timer.png)
+
+### 17. A session and the bookmark can be corrected
+
+`a session and the bookmark can be corrected`
+
+Edits a saved session (pages 13 to 20, minutes 25 to 40) and checks the bookmark moved with it. Then opens Edit book, sets the bookmark to page 160, and checks the book page shows 50% and Today shows 160 pages left.
+
+| Edit session | Edit book and bookmark |
+|---|---|
+| ![Edit session](screenshots/27-edit-session.png) | ![Edit book](screenshots/28-edit-book.png) |
+
+### 18. Today lists every book in progress
+
+`today lists every book in progress`
+
+With two books in progress, the most recent is the main card and the other appears under "Also reading" with its own Read button, which starts a session for that book.
+
+![Also reading](screenshots/29-also-reading.png)
 
 ---
 
@@ -218,6 +245,11 @@ You log where your bookmark is, not how many pages you read. The form shows wher
 | coherence | reaching the last page finishes the book | Page 300 of 300 brings the book to 100% |
 | coherence | pages left counts from the page you are on | On page 42 of 320 there are 278 left |
 | coherence | the ring, the streak and the stats read the same entries | One session shows the same minutes, pages and day on Today, the week strip and Stats |
+| corrections | logging moves the bookmark | Two sessions of 24 and 18 pages leave the bookmark on page 42 |
+| corrections | editing a session moves the bookmark by the difference | Changing 18 pages to 28 moves it from 42 to 52 |
+| corrections | deleting a session moves the bookmark back | Removing the 18-page session returns it to 24 |
+| corrections | the bookmark can be set directly | Page 160 of 320 is 50%; it cannot go past the last page, which finishes the book |
+| corrections | today lists the other books in progress | The most recent is the main book; the rest are listed |
 | migration | a version 1 database upgrades with its rows intact | Existing books and entries survive; deleting a book now removes its entries |
 | reminders | fire a little before the usual reading time | 15 minutes before your median entry time; 20:00 with no history |
 | reminders | count how many in a row were ignored | Used to drop to every other day after five ignored |

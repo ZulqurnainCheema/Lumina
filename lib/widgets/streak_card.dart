@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:lumina/services/habit_services.dart';
 import 'package:lumina/theme.dart';
-import 'package:lumina/widgets/why_chip.dart';
+import 'package:lumina/widgets/lumina_sheet.dart';
 
 // The streak, the last seven days and what to do about them. Shown on Today
 // and, rendered to an image, as the home-screen widget.
@@ -62,7 +62,23 @@ class StreakCard extends StatelessWidget {
                   ),
                 ),
               ),
-              if (showWhy) const WhyChip(researchKey: 'streak'),
+              if (showWhy)
+                TextButton(
+                  onPressed: () => showLuminaSheet(
+                    context,
+                    title: 'How your streak works',
+                    body:
+                        'Any reading on a day keeps the streak, even one '
+                        'page.\n\n'
+                        'Every 7 days in a row earns a freeze, up to 2. A '
+                        'freeze is used for you if you miss a day.\n\n'
+                        'Miss a day with no freeze, and reading double your '
+                        'daily goal the next day brings the streak back.',
+                    confirm: 'Got it',
+                    researchKey: 'streak',
+                  ),
+                  child: const Text('How it works'),
+                ),
             ],
           ),
           const SizedBox(height: 16),

@@ -104,7 +104,7 @@ class LuminaTheme {
       ),
       bodySmall: GoogleFonts.manrope(
         fontWeight: FontWeight.w500,
-        fontSize: 13,
+        fontSize: 14,
         height: 1.4,
         color: LuminaColors.textSecondary,
       ),
