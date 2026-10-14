@@ -1,4 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="lumina_today_widget_description">Your current book, minutes read today and streak</string>
     <string name="lumina_streak_widget_description">Your reading streak and the last seven days</string>
 </resources>

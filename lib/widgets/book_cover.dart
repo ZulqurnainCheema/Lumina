@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:ui' as ui;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -10,6 +11,7 @@ class BookCover extends StatelessWidget {
     required this.coverUrl,
     required this.title,
     this.width = 64,
+    this.decoded,
   });
 
   static const List<Color> _placeholderColors = <Color>[
@@ -24,6 +26,10 @@ class BookCover extends StatelessWidget {
   final String coverUrl;
   final String title;
   final double width;
+
+  // An image decoded ahead of time, for renders that cannot wait for one to
+  // load (the home-screen widgets).
+  final ui.Image? decoded;
 
   @override
   Widget build(BuildContext context) {
@@ -56,7 +62,9 @@ class BookCover extends StatelessWidget {
         ],
       ),
       clipBehavior: Clip.antiAlias,
-      child: coverUrl.startsWith('http')
+      child: decoded != null
+          ? RawImage(image: decoded, fit: BoxFit.cover)
+          : coverUrl.startsWith('http')
           ? Image.network(
               coverUrl,
               fit: BoxFit.cover,

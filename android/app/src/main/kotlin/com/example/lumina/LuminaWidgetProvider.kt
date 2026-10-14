@@ -3,7 +3,9 @@ package com.example.lumina
 import android.appwidget.AppWidgetManager
 import android.content.Context
 import android.content.SharedPreferences
+import android.graphics.BitmapFactory
 import android.net.Uri
+import android.view.View
 import android.widget.RemoteViews
 import es.antonborri.home_widget.HomeWidgetLaunchIntent
 import es.antonborri.home_widget.HomeWidgetProvider
@@ -34,6 +36,22 @@ class LuminaWidgetProvider : HomeWidgetProvider() {
                 setTextViewText(R.id.widget_book, widgetData.getString("book", "Lumina"))
                 setTextViewText(R.id.widget_hook, widgetData.getString("hook", "Tap to read."))
                 setProgressBar(R.id.widget_progress, 100, progress, false)
+                // The drawn card shows the day it was made, so it is only used
+                // while it is still that day.
+                val card = if (stale) {
+                    null
+                } else {
+                    widgetData.getString("todayCard", null)
+                        ?.let { BitmapFactory.decodeFile(it) }
+                }
+                if (card != null) {
+                    setImageViewBitmap(R.id.widget_image, card)
+                    setViewVisibility(R.id.widget_image, View.VISIBLE)
+                    setViewVisibility(R.id.widget_fallback, View.INVISIBLE)
+                } else {
+                    setViewVisibility(R.id.widget_image, View.GONE)
+                    setViewVisibility(R.id.widget_fallback, View.VISIBLE)
+                }
                 setOnClickPendingIntent(
                     R.id.widget_root,
                     HomeWidgetLaunchIntent.getActivity(

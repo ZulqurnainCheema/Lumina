@@ -5,10 +5,10 @@ Every UI test below drives the real app on Linux at phone size (412 × 892) agai
 ## Running the tests
 
 ```bash
-# Logic: streaks, freezes, repair, migration, reminders, backup, research entries (42 tests, about 2 seconds)
+# Logic: streaks, freezes, repair, migration, reminders, backup, research entries (43 tests, about 2 seconds)
 flutter test
 
-# UI flows, one or more screenshots per test (18 tests, 3 to 5 minutes, needs a display)
+# UI flows, one or more screenshots per test (19 tests, 3 to 5 minutes, needs a display)
 flutter test integration_test/habit_flow_test.dart -d linux
 ```
 
@@ -217,6 +217,14 @@ With two books in progress, the most recent is the main card and the other appea
 
 ![Also reading](screenshots/29-also-reading.png)
 
+### 19. The today card draws on its own for the home-screen widget
+
+`the today card draws on its own for the home-screen widget`
+
+The "Lumina today" widget now shows the same card as the app: the cover, title, author, progress and pages left, the minutes ring with the streak under it, and your open question. The app draws it to an image with the cover decoded first, and the widget shows that image. This test draws it the same way, standalone, with a generated cover.
+
+![Today widget](screenshots/30-today-widget.png)
+
 ---
 
 ## Logic tests
@@ -254,6 +262,7 @@ With two books in progress, the most recent is the main card and the other appea
 | reminders | fire a little before the usual reading time | 15 minutes before your median entry time; 20:00 with no history |
 | reminders | count how many in a row were ignored | Used to drop to every other day after five ignored |
 | reminders | are written from the reader's own notes | Your hook, pages left, streak and plan, in rotation |
+| widgets | a web cover gets a short, stable cache name | The same address always maps to the same cached file; different addresses do not collide |
 | backup | a backup restores everything on an empty device | Books, sessions, notes, goal, plan, freezes and habit check-ins all come back; a half-finished session does not |
 | backup | restoring replaces what is on the device | A book added after the backup is gone after restoring |
 | backup | a file that is not a backup is refused and changes nothing | Random files, other apps' files and backups from a newer version are rejected |

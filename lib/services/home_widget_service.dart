@@ -1,11 +1,17 @@
+import 'dart:io';
+import 'dart:ui' as ui;
+
+import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:home_widget/home_widget.dart';
 import 'package:intl/intl.dart';
+import 'package:lumina/services/cover_services.dart';
 import 'package:lumina/services/habit_services.dart';
 import 'package:lumina/theme.dart';
 import 'package:lumina/widgets/streak_card.dart';
+import 'package:lumina/widgets/today_widget_card.dart';
 
 class HomeWidgetService {
   static const String _androidProvider = 'LuminaWidgetProvider';
@@ -60,6 +66,7 @@ class HomeWidgetService {
         streakStatus(today.streak),
       );
       await _renderStreakCard(today);
+      await _renderTodayCard(today);
       await HomeWidget.updateWidget(androidName: _androidProvider);
       await HomeWidget.updateWidget(androidName: _androidStreakProvider);
     } catch (error) {
@@ -88,6 +95,82 @@ class HomeWidgetService {
       // The widget falls back to its plain layout when there is no image.
       debugPrint('HomeWidgetService: streak card render failed: $error');
     }
+  }
+
+  static Future<void> _renderTodayCard(TodayData today) async {
+    try {
+      await GoogleFonts.pendingFonts();
+      final ui.Image? cover = today.book == null
+          ? null
+          : await loadCover(today.book!.coverUrl);
+      await HomeWidget.renderFlutterWidget(
+        Theme(
+          data: LuminaTheme.dark(),
+          child: TodayWidgetCard(today: today, cover: cover),
+        ),
+        key: 'todayCard',
+        logicalSize: TodayWidgetCard.size,
+        pixelRatio: 3,
+      );
+    } catch (error) {
+      debugPrint('HomeWidgetService: today card render failed: $error');
+    }
+  }
+
+  // The cover as a decoded image. Web covers are fetched once and kept in
+  // the covers folder; stored covers are read from disk. Null when there is
+  // no usable image, in which case the generated cover is drawn instead.
+  static Future<ui.Image?> loadCover(String coverUrl) async {
+    try {
+      final Uint8List? bytes = await _coverBytes(coverUrl);
+      if (bytes == null) {
+        return null;
+      }
+      return await decodeImageFromList(bytes);
+    } catch (error) {
+      debugPrint('HomeWidgetService: cover load failed: $error');
+      return null;
+    }
+  }
+
+  static Future<Uint8List?> _coverBytes(String coverUrl) async {
+    if (CoverServices.isStoredCover(coverUrl)) {
+      final File file = File(coverUrl);
+      return await file.exists() ? file.readAsBytes() : null;
+    }
+    if (!coverUrl.startsWith('http')) {
+      return null;
+    }
+    final Directory directory = await CoverServices.instance.coversDirectory();
+    final File cached = File(
+      '${directory.path}/remote-${cacheName(coverUrl)}.jpg',
+    );
+    if (await cached.exists()) {
+      return cached.readAsBytes();
+    }
+    final Response<List<int>> response = await Dio(
+      BaseOptions(
+        connectTimeout: const Duration(seconds: 10),
+        receiveTimeout: const Duration(seconds: 15),
+        responseType: ResponseType.bytes,
+      ),
+    ).get<List<int>>(coverUrl);
+    final Uint8List bytes = Uint8List.fromList(response.data ?? <int>[]);
+    if (bytes.isEmpty) {
+      return null;
+    }
+    await cached.writeAsBytes(bytes, flush: true);
+    return bytes;
+  }
+
+  // A short, stable file name for a web address.
+  @visibleForTesting
+  static String cacheName(String url) {
+    final int hash = url.codeUnits.fold<int>(
+      5381,
+      (int hash, int unit) => ((hash * 33) ^ unit) & 0xFFFFFFFF,
+    );
+    return '${url.length}-${hash.toRadixString(16)}';
   }
 
   // One letter per day for the streak widget, oldest first:

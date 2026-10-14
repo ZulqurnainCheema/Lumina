@@ -2,6 +2,8 @@ import 'dart:io';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 
+import 'package:image/image.dart' as img;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -13,6 +15,7 @@ import 'package:lumina/services/database_services.dart';
 import 'package:lumina/services/habit_services.dart';
 import 'package:lumina/theme.dart';
 import 'package:lumina/widgets/streak_card.dart';
+import 'package:lumina/widgets/today_widget_card.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 // Every test saves one or more screenshots here; docs/testing.md shows them.
@@ -726,5 +729,56 @@ void main() {
     expect(find.byIcon(Icons.ac_unit_rounded), findsOneWidget);
     expect(find.text('Why?'), findsNothing);
     await screenshot(tester, '22-streak-widget');
+  });
+
+  testWidgets('the today card draws on its own for the home-screen widget', (
+    tester,
+  ) async {
+    final int book = await addBook();
+    for (int day = 9; day >= 1; day--) {
+      await readOn(
+        book,
+        daysAgo(day),
+        hook: day == 1 ? 'Does Jessica survive the desert?' : '',
+      );
+    }
+    await readOn(book, daysAgo(0));
+    final TodayData today = await HabitServices.instance.getToday();
+    // A cover decoded ahead of time, as the app does before rendering.
+    final ui.Image cover = await decodeImageFromList(
+      img.encodePng(
+        img.fill(
+          img.Image(width: 300, height: 450),
+          color: img.ColorRgb8(94, 70, 52),
+        ),
+      ),
+    );
+
+    await tester.binding.setSurfaceSize(TodayWidgetCard.size);
+    await tester.pumpWidget(
+      RepaintBoundary(
+        key: screenshotKey,
+        child: Directionality(
+          textDirection: TextDirection.ltr,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Theme(
+                data: LuminaTheme.dark(),
+                child: TodayWidgetCard(today: today, cover: cover),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    await settle(tester);
+
+    expect(find.text('Dune'), findsOneWidget);
+    expect(find.text('Does Jessica survive the desert?'), findsOneWidget);
+    expect(find.text('25'), findsOneWidget); // minutes read today
+    expect(find.text('10'), findsOneWidget); // day streak
+    expect(find.byType(RawImage), findsOneWidget);
+    await screenshot(tester, '30-today-widget');
   });
 }

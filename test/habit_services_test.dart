@@ -609,6 +609,19 @@ void main() {
       );
     });
 
+    test('a web cover gets a short, stable cache name', () {
+      const String url = 'https://covers.openlibrary.org/b/id/11481354-L.jpg';
+      expect(
+        HomeWidgetService.cacheName(url),
+        HomeWidgetService.cacheName(url),
+      );
+      expect(HomeWidgetService.cacheName(url).length, lessThan(20));
+      expect(
+        HomeWidgetService.cacheName(url),
+        isNot(HomeWidgetService.cacheName('$url?x')),
+      );
+    });
+
     test('marks a missed day and offers the repair', () async {
       final int book = await addBook();
       await readOn(book, daysAgo(3));
