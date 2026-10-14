@@ -217,11 +217,11 @@ With two books in progress, the most recent is the main card and the other appea
 
 ![Also reading](screenshots/29-also-reading.png)
 
-### 19. The today card draws on its own for the home-screen widget
+### 19. The today widget is the streak card with the cover
 
-`the today card draws on its own for the home-screen widget`
+`the today widget is the streak card with the cover`
 
-The "Lumina today" widget now shows the same card as the app: the cover, title, author, progress and pages left, the minutes ring with the streak under it, and your open question. The app draws it to an image with the cover decoded first, and the widget shows that image. This test draws it the same way, standalone, with a generated cover.
+The "Lumina today" widget is the streak card (day dots, status, freezes) with the current book's cover and title on the left. The app draws it to an image with the cover decoded first, and the widget shows that image. This test draws it the same way, standalone, with a generated cover, and checks the dots (six read, one freeze, today open), the banked freeze and the title.
 
 ![Today widget](screenshots/30-today-widget.png)
 

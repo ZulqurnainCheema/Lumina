@@ -11,12 +11,13 @@ import 'package:lumina/services/cover_services.dart';
 import 'package:lumina/services/habit_services.dart';
 import 'package:lumina/theme.dart';
 import 'package:lumina/widgets/streak_card.dart';
-import 'package:lumina/widgets/today_widget_card.dart';
 
 class HomeWidgetService {
   static const String _androidProvider = 'LuminaWidgetProvider';
   static const String _androidStreakProvider = 'LuminaStreakWidgetProvider';
   static const Size _streakCardSize = Size(372, 236);
+  // Taller, to fit the cover and title beside the week.
+  static const Size _todayCardSize = Size(372, 260);
 
   static bool get supported =>
       !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
@@ -103,13 +104,22 @@ class HomeWidgetService {
       final ui.Image? cover = today.book == null
           ? null
           : await loadCover(today.book!.coverUrl);
+      // The streak card with the current book's cover on the left.
       await HomeWidget.renderFlutterWidget(
         Theme(
           data: LuminaTheme.dark(),
-          child: TodayWidgetCard(today: today, cover: cover),
+          child: SizedBox(
+            width: _streakCardSize.width,
+            child: StreakCard(
+              today: today,
+              showWhy: false,
+              book: today.book,
+              cover: cover,
+            ),
+          ),
         ),
         key: 'todayCard',
-        logicalSize: TodayWidgetCard.size,
+        logicalSize: _todayCardSize,
         pixelRatio: 3,
       );
     } catch (error) {

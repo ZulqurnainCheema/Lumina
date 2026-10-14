@@ -1,18 +1,35 @@
+import 'dart:ui' as ui;
+
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:lumina/models/books.dart';
 import 'package:lumina/services/habit_services.dart';
 import 'package:lumina/theme.dart';
+import 'package:lumina/widgets/book_cover.dart';
 import 'package:lumina/widgets/lumina_sheet.dart';
 
 // The streak, the last seven days and what to do about them. Shown on Today
-// and, rendered to an image, as the home-screen widget.
+// and, rendered to an image, as the home-screen widgets; the "today" widget
+// adds the current book's cover on the left.
 class StreakCard extends StatelessWidget {
-  const StreakCard({super.key, required this.today, this.showWhy = true});
+  const StreakCard({
+    super.key,
+    required this.today,
+    this.showWhy = true,
+    this.book,
+    this.cover,
+  });
 
   final TodayData today;
 
   // The home-screen widget cannot open the explanation, so it leaves it out.
   final bool showWhy;
+
+  // When given, the book's cover and title sit on the left of the card.
+  final Books? book;
+
+  // The cover decoded ahead of time, for renders that cannot wait for one.
+  final ui.Image? cover;
 
   @override
   Widget build(BuildContext context) {
@@ -30,116 +47,150 @@ class StreakCard extends StatelessWidget {
       status = null;
     }
 
+    // Less room for the week once the cover takes the left side.
+    final double dotSize = book == null ? 34 : 28;
+
+    final Widget streakColumn = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            const Icon(
+              Icons.local_fire_department_rounded,
+              color: LuminaColors.streak,
+              size: 28,
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text.rich(
+                TextSpan(
+                  children: [
+                    TextSpan(
+                      text: '${streak.current}',
+                      style: textTheme.headlineLarge?.copyWith(
+                        color: LuminaColors.streak,
+                      ),
+                    ),
+                    TextSpan(text: ' day streak', style: textTheme.titleMedium),
+                  ],
+                ),
+              ),
+            ),
+            if (showWhy)
+              TextButton(
+                onPressed: () => showLuminaSheet(
+                  context,
+                  title: 'How your streak works',
+                  body:
+                      'Any reading on a day keeps the streak, even one '
+                      'page.\n\n'
+                      'Every 7 days in a row earns a freeze, up to 2. A '
+                      'freeze is used for you if you miss a day.\n\n'
+                      'Miss a day with no freeze, and reading double your '
+                      'daily goal the next day brings the streak back.',
+                  confirm: 'Got it',
+                  researchKey: 'streak',
+                ),
+                child: const Text('How it works'),
+              ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        Padding(
+          padding: const EdgeInsets.only(right: 8),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              for (final WeekDay day in today.week)
+                _DayDot(day: day, size: dotSize),
+            ],
+          ),
+        ),
+        const SizedBox(height: 14),
+        Padding(
+          padding: const EdgeInsets.only(right: 8),
+          child: Text(
+            status ??
+                (streak.freezes == 0
+                    ? 'Seven days in a row earns a freeze for a missed day.'
+                    : 'Keep going. A missed day will not break it.'),
+            style: status == null ? textTheme.bodySmall : textTheme.bodyMedium,
+          ),
+        ),
+        if (streak.freezes > 0) ...[
+          const SizedBox(height: 10),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: LuminaColors.background.withAlpha(110),
+              borderRadius: BorderRadius.circular(999),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(
+                  Icons.ac_unit_rounded,
+                  size: 14,
+                  color: LuminaColors.textSecondary,
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  '${streak.freezes} freeze${streak.freezes == 1 ? '' : 's'} banked',
+                  style: textTheme.bodySmall,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ],
+    );
+
     return Container(
       padding: const EdgeInsets.fromLTRB(20, 18, 12, 20),
       decoration: LuminaDecorations.tinted(LuminaColors.streak),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              const Icon(
-                Icons.local_fire_department_rounded,
-                color: LuminaColors.streak,
-                size: 28,
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text.rich(
-                  TextSpan(
+      child: book == null
+          ? streakColumn
+          : Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SizedBox(
+                  width: 84,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      TextSpan(
-                        text: '${streak.current}',
-                        style: textTheme.headlineLarge?.copyWith(
-                          color: LuminaColors.streak,
-                        ),
+                      BookCover(
+                        coverUrl: book!.coverUrl,
+                        title: book!.title,
+                        width: 84,
+                        decoded: cover,
                       ),
-                      TextSpan(
-                        text: ' day streak',
-                        style: textTheme.titleMedium,
+                      const SizedBox(height: 8),
+                      Text(
+                        book!.title,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: textTheme.bodySmall?.copyWith(
+                          color: LuminaColors.textPrimary,
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
                     ],
                   ),
                 ),
-              ),
-              if (showWhy)
-                TextButton(
-                  onPressed: () => showLuminaSheet(
-                    context,
-                    title: 'How your streak works',
-                    body:
-                        'Any reading on a day keeps the streak, even one '
-                        'page.\n\n'
-                        'Every 7 days in a row earns a freeze, up to 2. A '
-                        'freeze is used for you if you miss a day.\n\n'
-                        'Miss a day with no freeze, and reading double your '
-                        'daily goal the next day brings the streak back.',
-                    confirm: 'Got it',
-                    researchKey: 'streak',
-                  ),
-                  child: const Text('How it works'),
-                ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Padding(
-            padding: const EdgeInsets.only(right: 8),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                for (final WeekDay day in today.week) _DayDot(day: day),
+                const SizedBox(width: 16),
+                Expanded(child: streakColumn),
               ],
             ),
-          ),
-          const SizedBox(height: 14),
-          Padding(
-            padding: const EdgeInsets.only(right: 8),
-            child: Text(
-              status ??
-                  (streak.freezes == 0
-                      ? 'Seven days in a row earns a freeze for a missed day.'
-                      : 'Keep going. A missed day will not break it.'),
-              style: status == null
-                  ? textTheme.bodySmall
-                  : textTheme.bodyMedium,
-            ),
-          ),
-          if (streak.freezes > 0) ...[
-            const SizedBox(height: 10),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              decoration: BoxDecoration(
-                color: LuminaColors.background.withAlpha(110),
-                borderRadius: BorderRadius.circular(999),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(
-                    Icons.ac_unit_rounded,
-                    size: 14,
-                    color: LuminaColors.textSecondary,
-                  ),
-                  const SizedBox(width: 6),
-                  Text(
-                    '${streak.freezes} freeze${streak.freezes == 1 ? '' : 's'} banked',
-                    style: textTheme.bodySmall,
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ],
-      ),
     );
   }
 }
 
 // One day in the week strip: filled when read, ringed when it is today.
 class _DayDot extends StatelessWidget {
-  const _DayDot({required this.day});
+  const _DayDot({required this.day, required this.size});
 
   final WeekDay day;
+  final double size;
 
   @override
   Widget build(BuildContext context) {
@@ -166,8 +217,8 @@ class _DayDot extends StatelessWidget {
         ),
         const SizedBox(height: 6),
         Container(
-          width: 34,
-          height: 34,
+          width: size,
+          height: size,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
             color: read

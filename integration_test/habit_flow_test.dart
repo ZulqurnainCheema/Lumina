@@ -15,7 +15,6 @@ import 'package:lumina/services/database_services.dart';
 import 'package:lumina/services/habit_services.dart';
 import 'package:lumina/theme.dart';
 import 'package:lumina/widgets/streak_card.dart';
-import 'package:lumina/widgets/today_widget_card.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 // Every test saves one or more screenshots here; docs/testing.md shows them.
@@ -731,18 +730,18 @@ void main() {
     await screenshot(tester, '22-streak-widget');
   });
 
-  testWidgets('the today card draws on its own for the home-screen widget', (
+  testWidgets('the today widget is the streak card with the cover', (
     tester,
   ) async {
     final int book = await addBook();
-    for (int day = 9; day >= 1; day--) {
-      await readOn(
-        book,
-        daysAgo(day),
-        hook: day == 1 ? 'Does Jessica survive the desert?' : '',
-      );
+    // Fourteen days earn two freezes, a missed day spends one, then three
+    // more days. One freeze stays banked.
+    for (int day = 17; day >= 4; day--) {
+      await readOn(book, daysAgo(day));
     }
-    await readOn(book, daysAgo(0));
+    for (int day = 2; day >= 0; day--) {
+      await readOn(book, daysAgo(day));
+    }
     final TodayData today = await HabitServices.instance.getToday();
     // A cover decoded ahead of time, as the app does before rendering.
     final ui.Image cover = await decodeImageFromList(
@@ -754,7 +753,7 @@ void main() {
       ),
     );
 
-    await tester.binding.setSurfaceSize(TodayWidgetCard.size);
+    await tester.binding.setSurfaceSize(const Size(372, 260));
     await tester.pumpWidget(
       RepaintBoundary(
         key: screenshotKey,
@@ -765,7 +764,15 @@ void main() {
             children: [
               Theme(
                 data: LuminaTheme.dark(),
-                child: TodayWidgetCard(today: today, cover: cover),
+                child: SizedBox(
+                  width: 372,
+                  child: StreakCard(
+                    today: today,
+                    showWhy: false,
+                    book: today.book,
+                    cover: cover,
+                  ),
+                ),
               ),
             ],
           ),
@@ -775,10 +782,12 @@ void main() {
     await settle(tester);
 
     expect(find.text('Dune'), findsOneWidget);
-    expect(find.text('Does Jessica survive the desert?'), findsOneWidget);
-    expect(find.text('25'), findsOneWidget); // minutes read today
-    expect(find.text('10'), findsOneWidget); // day streak
+    expect(find.text('17 day streak'), findsOneWidget);
     expect(find.byType(RawImage), findsOneWidget);
+    expect(find.byIcon(Icons.check_rounded), findsNWidgets(6));
+    expect(find.byIcon(Icons.ac_unit_rounded), findsNWidgets(2));
+    expect(find.text('1 freeze banked'), findsOneWidget);
+    expect(find.text('Why?'), findsNothing);
     await screenshot(tester, '30-today-widget');
   });
 }
