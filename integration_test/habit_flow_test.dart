@@ -583,6 +583,7 @@ void main() {
       '160',
     );
     expect(find.text('Find cover'), findsOneWidget);
+    expect(find.text('From gallery'), findsOneWidget);
     await screenshot(tester, '28-edit-book');
     await tester.ensureVisible(find.text('Save changes'));
     await tester.tap(find.text('Save changes'));

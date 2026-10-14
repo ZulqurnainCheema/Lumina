@@ -1,5 +1,7 @@
 import 'dart:convert';
+import 'dart:io';
 
+import 'package:lumina/services/cover_services.dart';
 import 'package:lumina/services/database_services.dart';
 import 'package:sqflite/sqflite.dart';
 
@@ -63,6 +65,20 @@ class BackupServices {
     backup['settings'] = (backup['settings'] as List<Map<String, dynamic>>)
         .where((row) => !_deviceOnlySettings.contains(row['key']))
         .toList();
+    // Covers chosen from the gallery live in files, so they go in too.
+    final Map<String, String> covers = <String, String>{};
+    for (final Map<String, dynamic> book
+        in backup['books'] as List<Map<String, dynamic>>) {
+      final String coverUrl = book['coverUrl'] as String? ?? '';
+      if (!CoverServices.isStoredCover(coverUrl)) {
+        continue;
+      }
+      final File file = File(coverUrl);
+      if (await file.exists()) {
+        covers['${book['id']}'] = base64Encode(await file.readAsBytes());
+      }
+    }
+    backup['covers'] = covers;
     return const JsonEncoder.withIndent('  ').convert(backup);
   }
 
@@ -79,9 +95,36 @@ class BackupServices {
 
   // Replaces everything on this device with the backup. Either all of it is
   // restored or nothing changes.
-  Future<BackupSummary> importJson(String json) async {
+  Future<BackupSummary> importJson(
+    String json, {
+    Directory? coversDirectory,
+  }) async {
     final Map<String, dynamic> backup = _decode(json);
     final Database db = await _databaseServices.database;
+
+    // Gallery covers get a path on this device; a cover whose file was
+    // missing when the backup was made is dropped rather than left dangling.
+    final Map<String, dynamic> covers =
+        (backup['covers'] as Map<String, dynamic>?) ?? <String, dynamic>{};
+    final Map<String, File> coverFiles = <String, File>{};
+    final Directory? directory = covers.isEmpty
+        ? null
+        : coversDirectory ?? await CoverServices.instance.coversDirectory();
+    for (final Map<String, dynamic> book
+        in (backup['books'] as List<dynamic>).cast<Map<String, dynamic>>()) {
+      final String coverUrl = book['coverUrl'] as String? ?? '';
+      if (!CoverServices.isStoredCover(coverUrl)) {
+        continue;
+      }
+      final String id = '${book['id']}';
+      if (covers.containsKey(id)) {
+        coverFiles[id] = File('${directory!.path}/restored-$id.jpg');
+        book['coverUrl'] = coverFiles[id]!.path;
+      } else {
+        book['coverUrl'] = '';
+      }
+    }
+
     await db.transaction((txn) async {
       // Entries go first so no entry is left pointing at a missing book.
       for (final String table in _tables.reversed) {
@@ -93,6 +136,12 @@ class BackupServices {
         }
       }
     });
+    for (final MapEntry<String, File> entry in coverFiles.entries) {
+      await entry.value.writeAsBytes(
+        base64Decode(covers[entry.key] as String),
+        flush: true,
+      );
+    }
     return inspect(json);
   }
 

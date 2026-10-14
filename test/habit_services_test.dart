@@ -1,6 +1,8 @@
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:image/image.dart' as img;
 import 'package:lumina/research.dart';
 import 'package:lumina/services/backup_services.dart';
 import 'package:lumina/services/cover_services.dart';
@@ -728,6 +730,36 @@ void main() {
       expect((await databaseServices.getBooks()).single.title, 'Dune');
     });
 
+    test('a gallery cover travels with the backup', () async {
+      final Directory before = await Directory.systemTemp.createTemp('covers');
+      final Directory after = await Directory.systemTemp.createTemp('covers');
+      final int book = await addBook();
+      final String path = (await CoverServices.instance.saveCover(
+        img.encodePng(img.Image(width: 300, height: 450)),
+        directory: before,
+        name: 'dune',
+      ))!;
+      await databaseServices.updateBook(book, {'coverUrl': path});
+
+      final String json = await BackupServices.instance.exportJson(now: today);
+      // The old device and its files are gone.
+      await before.delete(recursive: true);
+      final Database db = await databaseServices.database;
+      await db.delete('books');
+
+      await BackupServices.instance.importJson(json, coversDirectory: after);
+
+      final String restored = (await databaseServices.getBook(book))!.coverUrl;
+      expect(restored, startsWith(after.path));
+      expect(File(restored).existsSync(), isTrue);
+      expect(img.decodeImage(File(restored).readAsBytesSync())?.width, 300);
+
+      // Deleting the book removes the file it owned.
+      await databaseServices.deleteBook(book);
+      expect(File(restored).existsSync(), isFalse);
+      await after.delete(recursive: true);
+    });
+
     test('the file is named by date', () {
       expect(
         BackupServices.instance.fileName(now: DateTime(2026, 3, 5)),
@@ -749,6 +781,25 @@ void main() {
       );
       expect(CoverServices.titleVariants(' Dune '), ['Dune']);
       expect(CoverServices.titleVariants(''), isEmpty);
+    });
+
+    test('a gallery photo is shrunk to cover size', () {
+      final img.Image photo = img.fill(
+        img.Image(width: 1200, height: 1800),
+        color: img.ColorRgb8(60, 90, 70),
+      );
+      final Uint8List original = img.encodePng(photo);
+
+      final Uint8List? cover = CoverServices.shrinkToCover(original);
+
+      final img.Image shrunk = img.decodeImage(cover!)!;
+      expect(shrunk.width, CoverServices.coverWidth);
+      expect(shrunk.height, 720);
+      expect(cover.length, lessThan(original.length));
+      expect(
+        CoverServices.shrinkToCover(Uint8List.fromList([1, 2, 3])),
+        isNull,
+      );
     });
 
     test('the first search result with a cover is used', () {

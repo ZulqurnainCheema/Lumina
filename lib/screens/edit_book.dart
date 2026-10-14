@@ -4,7 +4,7 @@ import 'package:lumina/services/cover_services.dart';
 import 'package:lumina/services/database_services.dart';
 import 'package:lumina/services/home_widget_service.dart';
 import 'package:lumina/theme.dart';
-import 'package:lumina/widgets/book_cover.dart';
+import 'package:lumina/widgets/cover_picker.dart';
 import 'package:lumina/widgets/section_header.dart';
 
 class EditBook extends StatefulWidget {
@@ -25,6 +25,7 @@ class _EditBookState extends State<EditBook> {
   final TextEditingController _bookmarkController = TextEditingController();
   bool _loaded = false;
   String _coverUrl = '';
+  String _savedCoverUrl = '';
   bool _isFetchingCover = false;
 
   TextStyle? get _fieldTextStyle => Theme.of(context).textTheme.bodyMedium
@@ -48,6 +49,7 @@ class _EditBookState extends State<EditBook> {
       _pagesController.text = '${book.totalPages}';
       _bookmarkController.text = '$page';
       _coverUrl = book.coverUrl;
+      _savedCoverUrl = book.coverUrl;
       _loaded = true;
     });
   }
@@ -82,15 +84,40 @@ class _EditBookState extends State<EditBook> {
       _isFetchingCover = false;
     });
     if (message != null) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(message)));
+      _showMessage(message);
     }
+  }
+
+  Future<void> _pickFromGallery() async {
+    try {
+      final String? path = await CoverServices.instance.pickCoverFromGallery();
+      if (path == null || !mounted) {
+        return;
+      }
+      setState(() {
+        _coverUrl = path;
+      });
+    } catch (error) {
+      _showMessage('Could not use that image.');
+    }
+  }
+
+  void _showMessage(String message) {
+    if (!mounted) {
+      return;
+    }
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) {
       return;
+    }
+    // A stored photo that has been replaced is no longer needed.
+    if (_savedCoverUrl != _coverUrl) {
+      await CoverServices.deleteStoredCover(_savedCoverUrl);
     }
     await _databaseServices.updateBook(widget.id, {
       'title': _titleController.text.trim(),
@@ -133,6 +160,7 @@ class _EditBookState extends State<EditBook> {
                           controller: _titleController,
                           style: _fieldTextStyle,
                           decoration: const InputDecoration(labelText: 'Title'),
+                          onChanged: (_) => setState(() {}),
                           validator: (value) => (value ?? '').trim().isEmpty
                               ? 'Please enter a title for the book'
                               : null,
@@ -167,36 +195,12 @@ class _EditBookState extends State<EditBook> {
                           },
                         ),
                         const SizedBox(height: 24),
-                        Row(
-                          children: [
-                            BookCover(
-                              coverUrl: _coverUrl,
-                              title: _titleController.text,
-                              width: 72,
-                            ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text('Cover', style: textTheme.titleMedium),
-                                  Text(
-                                    'Looked up from the title and author.',
-                                    style: textTheme.bodySmall,
-                                  ),
-                                  const SizedBox(height: 10),
-                                  OutlinedButton(
-                                    onPressed: _findCover,
-                                    child: Text(
-                                      _isFetchingCover
-                                          ? 'Finding cover...'
-                                          : 'Find cover',
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
+                        CoverPicker(
+                          coverUrl: _coverUrl,
+                          title: _titleController.text,
+                          busy: _isFetchingCover,
+                          onFind: _findCover,
+                          onGallery: _pickFromGallery,
                         ),
                         const SizedBox(height: 28),
                         const SectionHeader(label: 'Bookmark'),

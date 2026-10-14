@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:lumina/services/database_services.dart';
 import 'package:lumina/theme.dart';
 import 'package:lumina/services/cover_services.dart';
+import 'package:lumina/widgets/cover_picker.dart';
 
 class Addbooks extends StatefulWidget {
   const Addbooks({super.key});
@@ -17,7 +18,7 @@ class _AddbooksState extends State<Addbooks> {
   final TextEditingController _titleController = TextEditingController();
   final TextEditingController _authorController = TextEditingController();
   final TextEditingController _pagesController = TextEditingController();
-  String _coverUrl = 'assets/book.jpg';
+  String _coverUrl = '';
   bool _isFetchingCover = false;
 
   TextStyle? get _fieldTextStyle => Theme.of(context).textTheme.bodyMedium
@@ -60,6 +61,23 @@ class _AddbooksState extends State<Addbooks> {
           _isFetchingCover = false;
         });
       }
+    }
+  }
+
+  Future<void> _pickFromGallery() async {
+    try {
+      final String? path = await CoverServices.instance.pickCoverFromGallery();
+      if (path == null || !mounted) {
+        return;
+      }
+      // A photo chosen earlier and then replaced is no longer needed.
+      await CoverServices.deleteStoredCover(_coverUrl);
+      setState(() {
+        _coverUrl = path;
+      });
+    } catch (e) {
+      debugPrint('Gallery cover failed: $e');
+      _showMessage('Could not use that image.');
     }
   }
 
@@ -133,6 +151,7 @@ class _AddbooksState extends State<Addbooks> {
                     controller: _titleController,
                     style: _fieldTextStyle,
                     decoration: InputDecoration(labelText: 'Title'),
+                    onChanged: (_) => setState(() {}),
                     validator: (value) {
                       if (value == null || value.isEmpty) {
                         return 'Please enter a title for the book';
@@ -169,72 +188,12 @@ class _AddbooksState extends State<Addbooks> {
                     },
                   ),
                   SizedBox(height: 24),
-                  Row(
-                    children: [
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(8),
-                        child: Stack(
-                          alignment: Alignment.center,
-                          children: [
-                            Image.network(
-                              _coverUrl,
-                              height: 120,
-                              width: 80,
-                              fit: BoxFit.cover,
-                              errorBuilder: (context, error, stackTrace) {
-                                return Image.asset(
-                                  'assets/book.jpg',
-                                  height: 120,
-                                  width: 80,
-                                  fit: BoxFit.cover,
-                                );
-                              },
-                            ),
-                            if (_isFetchingCover)
-                              Positioned.fill(
-                                child: DecoratedBox(
-                                  decoration: BoxDecoration(
-                                    color: LuminaColors.background.withAlpha(
-                                      210,
-                                    ),
-                                  ),
-                                  child: Center(
-                                    child: const SizedBox(
-                                      width: 24,
-                                      height: 24,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 3,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                          ],
-                        ),
-                      ),
-                      SizedBox(width: 16),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text('Cover', style: textTheme.titleMedium),
-                            Text(
-                              'Looked up from the title and author.',
-                              style: textTheme.bodySmall,
-                            ),
-                            SizedBox(height: 10),
-                            OutlinedButton(
-                              onPressed: fetchCover,
-                              child: Text(
-                                _isFetchingCover
-                                    ? 'Finding cover...'
-                                    : 'Find cover',
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
+                  CoverPicker(
+                    coverUrl: _coverUrl,
+                    title: _titleController.text,
+                    busy: _isFetchingCover,
+                    onFind: fetchCover,
+                    onGallery: _pickFromGallery,
                   ),
                   SizedBox(height: 32),
                   ElevatedButton(

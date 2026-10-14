@@ -1,3 +1,6 @@
+import 'dart:io';
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:lumina/theme.dart';
 
@@ -56,6 +59,13 @@ class BookCover extends StatelessWidget {
       child: coverUrl.startsWith('http')
           ? Image.network(
               coverUrl,
+              fit: BoxFit.cover,
+              errorBuilder: (context, error, stackTrace) => placeholder,
+            )
+          // A photo from the gallery, kept in the app's own folder.
+          : !kIsWeb && coverUrl.startsWith('/')
+          ? Image.file(
+              File(coverUrl),
               fit: BoxFit.cover,
               errorBuilder: (context, error, stackTrace) => placeholder,
             )

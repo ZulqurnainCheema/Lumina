@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:lumina/models/books.dart';
 import 'package:lumina/models/entries.dart';
+import 'package:lumina/services/cover_services.dart';
 import 'package:sqflite/sqflite.dart';
 
 class DatabaseServices {
@@ -165,7 +166,11 @@ class DatabaseServices {
 
   Future<void> deleteBook(int id) async {
     final Database db = await database;
+    final Books? book = await getBook(id);
     await db.delete('books', where: 'id = ?', whereArgs: [id]);
+    if (book != null) {
+      await CoverServices.deleteStoredCover(book.coverUrl);
+    }
   }
 
   Future<int> getTotalPages(int bookId) async {
